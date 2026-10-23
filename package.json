@@ -2,6 +2,12 @@
   "name": "dsh-whale-widget",
   "version": "0.4.2-pixel.1",
   "private": true,
+  "scripts": {
+    "test": "node --test test/pixel-core.test.mjs test/pixel-activity.test.mjs",
+    "check": "node scripts/check.mjs",
+    "test:browser": "node test/pixel-browser.mjs",
+    "preview": "node test/widget-server.mjs"
+  },
   "contributors": [
     { "name": "EachYoungX", "url": "https://github.com/EachYoungX" },
     { "name": "Codex (AI)", "email": "codex@openai.com" }
@@ -30,12 +36,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget.git"
+    "url": "git+https://github.com/EachYoungX/DeepSeek-Balance-Whale-Widget.git"
   },
   "bugs": {
-    "url": "https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget/issues"
+    "url": "https://github.com/EachYoungX/DeepSeek-Balance-Whale-Widget/issues"
   },
-  "homepage": "https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget#readme",
+  "homepage": "https://github.com/EachYoungX/DeepSeek-Balance-Whale-Widget#readme",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

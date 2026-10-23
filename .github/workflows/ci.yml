@@ -15,9 +15,9 @@ name: CI
 # ============================================================================
 on:
   push:
-    branches: [main]
+    branches: [main, pixel-animation]
   pull_request:
-    branches: [main]
+    branches: [main, pixel-animation]
 
 permissions:
   contents: read
@@ -32,6 +32,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
+
+      - name: Pixel animation checks
+        run: |
+          node scripts/sync-whale-girl.mjs --check
+          node --check assets/pixel-core.js
+          node --check assets/pixel-adapter.js
+          node --check lib/pixel-animation.mjs
+          node --test test/pixel-core.test.mjs test/pixel-activity.test.mjs
 
       # 层级自检（issue #131 / #142）：候选表里出现未声明的名字、或 body 级 *Mask 浮层没登记，
       # 都会静默失效（自绘下拉被父窗口盖住 / 两个窗口互相盖）。这类问题只能靠这条拦住。

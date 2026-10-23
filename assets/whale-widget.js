@@ -6845,6 +6845,7 @@ function checkUsageAlerts(balance, todayUsage) {
       if (isFinite(below) && typeof balance === 'number' && balance > 0 && balance <= below) {
         if (!usageAlertBelowFired) {
           usageAlertBelowFired = true
+          pixelSignal('notification')
           showUsagePopup('余额预警', usageRemindLinesOf(a, true), below, null, 2, a)
         }
       } else if (typeof balance === 'number' && balance > below) {
@@ -6858,6 +6859,7 @@ function checkUsageAlerts(balance, todayUsage) {
         var key = usageTodayKeyStr() + ':' + String(amt)
         if (usageBudgetFiredKey !== key) {
           usageBudgetFiredKey = key
+          pixelSignal('notification')
           showUsagePopup('今日预算提醒', usageRemindLinesOf(b, false), null, amt, 1, b)
         }
       }
@@ -13929,6 +13931,18 @@ function clampWidgetTop(v, maxT) {
 var body = document.createElement('div')
 body.className = 'dshwv-body'
 body.appendChild(img)
+// Pixel fork: keep the renderer and state machine behind this adapter.
+var pixelAnimation = null
+function pixelSignal(name, data) {
+  if (pixelAnimation) pixelAnimation.signal(name, data)
+}
+try {
+  if (window.DshWhalePixel) pixelAnimation = window.DshWhalePixel.mount({
+    image: img, menu: menuBox, role: initRoleId || 'default',
+    getFlip: function () { return !!(state && state.flip) },
+    selectDefault: function () { applyRole('default', '小鲸鱼', IMG_URL) }
+  })
+} catch (err) { console.warn('[dsh-whale-pixel]', err) }
 body.appendChild(bubbleBox)
 root.appendChild(body)
 root.appendChild(menuBtn)
@@ -18768,6 +18782,7 @@ function hideBubble() {
   bubbleCloseVisual()
 }
 function showCostBubble(amount) {
+  pixelSignal('notification')
   if (!bubbleOn || !turnCostOn) return
   // v778：②区「冒泡提示」勾选框（events.turnCost.bubbleOn）以前**只写不读** —— 取消勾选照样弹。
   //   同类问题（"控件有值、没有消费方"）与本次修的音量滑块同源，一并接上：
@@ -19227,6 +19242,7 @@ function balanceRetryLater() {
 function refresh(manual) {
   if (busy) return
   busy = true
+  if (manual || state.balance === null) pixelSignal('loading')
   if (animDelayTimer) { clearTimeout(animDelayTimer); animDelayTimer = null }
   if (manual || state.balance === null) { state.status = 'loading'; render() }
   var ctrl = null
@@ -19243,8 +19259,11 @@ function refresh(manual) {
         var nc = String(data.currency || 'CNY')
         var changed = state.balance !== null && (nb !== state.balance || nc !== state.currency)
         var currencyChanged = state.currency !== null && nc !== state.currency
+        var pixelIncrease = state.balance !== null && !currencyChanged && nb > state.balance && !data.stale
         state.balance = nb
         state.currency = nc
+        pixelSignal('ready')
+        if (pixelIncrease) pixelSignal('success')
         state.message = ''
         balanceRetryLeft = 2
         state.todayUsage = data.todayUsage !== undefined ? data.todayUsage : null
@@ -19289,6 +19308,7 @@ function refresh(manual) {
       } else {
         state.status = 'error'
         state.message = (data && data.error) ? String(data.error) : '获取失败'
+        pixelSignal('error')
         // v781：把宿主的错误码也打到控制台 —— "只登录客户端读不到余额"这类反馈里，
         //   界面只显示一句人类可读的文案，而 code（NO_KEY / BOTH_FAILED / SHAPE …）才是排查入口。
         try { console.warn('[dsh-whale] 余额读取失败', (data && data.code) || '', state.message) } catch (err) {}
@@ -19299,6 +19319,7 @@ function refresh(manual) {
     .catch(function () {
       state.status = 'error'
       state.message = '获取失败'
+      pixelSignal('error')
       render()
       balanceRetryLater()
     })
@@ -20088,6 +20109,7 @@ function makeNameCell(className, text) {
 function applyRole(id, name, url) {
   currentRole = { id: id, name: name, url: url }
   img.src = url
+  if (pixelAnimation) pixelAnimation.setRole(id)
   setRoleBtnText(name)
   try { localStorage.setItem('dshw-role', id) } catch (err) {}
   hitReady = false
@@ -21648,6 +21670,7 @@ function buildHitClipPath() {
   }
 }
 function isWhaleHit(e) {
+  if (pixelAnimation && pixelAnimation.active()) return pixelAnimation.hit(e, !!state.flip)
   // 命中图未就绪/失败时：绝不默认“全屏都是鲸鱼”。
   // 加载中 → 返回 false（不拦截页面）；加载失败 → 退回图像矩形区域，仅挂件区域可拖。
   if (!hitCanvas || !hitReady) {
@@ -21705,6 +21728,7 @@ function onDocPointerDown(e) {
   }
   if (e.button !== 0 && e.pointerType === 'mouse') return
   if (!isWhaleHit(e)) return
+  pixelSignal('press', { x: e.clientX })
   try { e.preventDefault(); e.stopPropagation() } catch (err) {}
   var vp = viewport()
   var rect = root.getBoundingClientRect()
@@ -21720,7 +21744,10 @@ function onDocPointerMove(e) {
   if (!drag || !drag.active) return
   var dx = e.clientX - drag.startX
   var dy = e.clientY - drag.startY
-  if (dx * dx + dy * dy >= CLICK_SQ) drag.moved = true
+  if (!drag.moved && dx * dx + dy * dy >= CLICK_SQ) {
+    drag.moved = true
+    pixelSignal('drag-start')
+  }
   // Keep the pre-drag flip orientation while dragging (state.h/v stay as they
   // were); on release endDrag() recomputes the anchors and settle() flips the
   // class with a smooth transition instead of reverting instantly.
@@ -21948,6 +21975,7 @@ try { applyMenuBtnHideUI() } catch (err) {}
 function endDrag(e, clickAllowed, cancelled) {
   if (!drag || !drag.active) return
   drag.active = false
+  pixelSignal('drag-end')
   document.removeEventListener('pointermove', onDocPointerMove, true)
   document.removeEventListener('pointerup', onDocPointerUp, true)
   document.removeEventListener('pointercancel', onDocPointerCancel, true)
@@ -22236,6 +22264,7 @@ function pollWaitState() {
       .then(function (d) {
         if (!d || !d.ok) return
         if (typeof d.sessionName === 'string') waitSessionName = d.sessionName
+        if (pixelAnimation) pixelAnimation.activity(d.activity)
         var p = d.pending || null
         if (!p || !p.kind) {
           // 挂起已解除：收起泡泡，并允许下一次挂起照常响

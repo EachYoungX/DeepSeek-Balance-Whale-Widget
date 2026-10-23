@@ -26,7 +26,8 @@ async function download(url) {
 // Validate every download before changing any checked-in file.
 const files = await Promise.all(lock.files.map(async entry => {
   const target = path.resolve(root, entry.target)
-  if (!target.startsWith(root + path.sep) && !target.startsWith(root)) throw new Error('Invalid target path')
+  const relative = path.relative(root, target)
+  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid target path')
   const bytes = check ? await readFile(target) : await download(
     `https://raw.githubusercontent.com/${lock.repository}/${lock.commit}/${entry.source}`)
   const hash = createHash('sha256').update(bytes).digest('hex')

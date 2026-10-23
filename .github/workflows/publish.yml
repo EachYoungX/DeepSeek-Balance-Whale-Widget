@@ -84,6 +84,14 @@ jobs:
       - name: Layer audit (z-index invariants)
         run: node tools/z-layer-audit.mjs assets/whale-widget.js
 
+      - name: Pixel animation checks
+        run: |
+          node scripts/sync-whale-girl.mjs --check
+          node --check assets/pixel-core.js
+          node --check assets/pixel-adapter.js
+          node --check lib/pixel-animation.mjs
+          node --test test/pixel-core.test.mjs test/pixel-activity.test.mjs
+
       # 发版前门禁：语法 + 「不得含开发机绝对路径」（发布副本必须是 strip 过的 —— 本机踩过一次）
       # 判据就用 `TestBox` 这个开发机专属目录名（覆盖 D:/TestBox 与 D:\TestBox 两种写法，
       # 且不会误伤厂商接口里 https://api.moonshot.cn/v1/users/me/balance 这类合法字符串）。
