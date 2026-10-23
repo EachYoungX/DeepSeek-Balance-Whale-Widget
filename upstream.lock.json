@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "widget": {
+    "repository": "MeteorNOX/DeepSeek-Balance-Whale-Widget",
+    "version": "0.4.2",
+    "commit": "5247dd6813d6e4430728f39ccc63d43cda046022"
+  },
+  "whaleGirl": {
+    "repository": "ccch1mneyyy/dsh-TUI",
+    "version": "0.16.1",
+    "commit": "73ff99fbed56563bf154d719effd09f9f9725349",
+    "files": [
+      {
+        "source": "assets/whaleGirl/frames.json",
+        "target": "assets/whaleGirl/frames.json",
+        "sha256": "375d8791d4d3fe5b7a62a58c19d5452982c38ed0b4899580f9891133241ab94a"
+      },
+      {
+        "source": "LICENSE",
+        "target": "assets/whaleGirl/LICENSE.dsh-TUI",
+        "sha256": "54f2c59427af6a22111dade86a39605a17826a7d44e98801c42e3ab21889f884"
+      },
+      {
+        "source": "assets/whaleGirl/README.md",
+        "target": "assets/whaleGirl/README.upstream.md",
+        "sha256": "110562c81665b06518232db7a6351cbba21be35d6e3f7c243150d77b03d274e4"
+      }
+    ]
+  }
+}

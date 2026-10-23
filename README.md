@@ -1,3 +1,7 @@
+# DSH 鲸娘像素动画分支
+
+本分支在余额挂件 0.4.2 上增加独立的鲸娘像素播放器和状态机，安装包名沿用 `dsh-whale-widget`。分支使用说明见 [像素动画](docs/PIXEL.md)，来源见 [NOTICE](NOTICE.md)，贡献者见 [贡献说明](docs/CONTRIBUTORS.md)。下方保留原挂件使用文档。
+
 # DSH 小鲸鱼记账挂件（DeepSeek Balance Whale Widget）
 
 ![DSH 小鲸鱼记账挂件](assets/DSH2.png)
