@@ -16,22 +16,21 @@
   function mount(options) {
     var image = options.image, parent = image.parentNode, canvas = document.createElement('canvas')
     var kit = null, machine = null, context = null, current = null, timer = null, raf = null, disposed = false
-    var role = options.role || 'default', enabled = true, cache = new Map(), pendingActivity = null
+    var role = options.role || 'default', ready = false, loading = false, cache = new Map(), pendingActivity = null
     var controller = new AbortController(), raster = null, paintedRaster = null
     var lastPaintKey = '', lastPaintFrame = -1
-    try { enabled = localStorage.getItem('dshw-pixel-enabled') !== 'false' } catch (err) {}
     canvas.className = 'dshwv-img dshwv-pixel'
     canvas.style.imageRendering = 'pixelated'
     canvas.style.display = 'none'
     canvas.setAttribute('role', 'img')
     canvas.setAttribute('aria-label', '鲸娘像素动画')
     parent.appendChild(canvas)
-    var toggle = document.createElement('button')
-    toggle.type = 'button'; toggle.className = 'dshwv-pixel-toggle'
-    toggle.style.cssText = 'display:block;width:100%;margin:6px 0;padding:6px;border:1px solid #b9cced;border-radius:6px;background:#f0f6ff;color:#213170;cursor:pointer'
-    options.menu.appendChild(toggle)
+    var control = document.createElement('button')
+    control.type = 'button'; control.className = 'dshwv-pixel-status'
+    control.style.cssText = 'display:block;width:100%;margin:6px 0;padding:6px;border:1px solid #b9cced;border-radius:6px;background:#f0f6ff;color:#213170;cursor:pointer'
+    options.menu.appendChild(control)
 
-    function active() { return !disposed && !!kit && enabled && role === 'default' }
+    function active() { return !disposed && ready && role === 'default' }
     function stop() {
       if (timer !== null) clearTimeout(timer)
       if (raf !== null) cancelAnimationFrame(raf)
@@ -40,10 +39,11 @@
     function visibility() {
       stop()
       var on = active()
-      image.style.visibility = on ? 'hidden' : ''
+      image.style.display = role === 'default' ? 'none' : ''
       canvas.style.display = on ? 'block' : 'none'
-      toggle.textContent = '像素动画：' + (enabled ? '开' : '关') + (enabled && role !== 'default' ? '（默认角色）' : '')
-      toggle.setAttribute('aria-pressed', String(enabled))
+      control.textContent = role !== 'default' ? '使用鲸娘像素动画' :
+        loading ? '像素动画：加载中…' : ready ? '像素动画：已启用' : '像素动画：加载失败，点击重试'
+      control.disabled = role === 'default' && (loading || ready)
       lastPaintKey = ''
       if (on && !document.hidden) tick()
     }
@@ -98,10 +98,10 @@
       } catch (err) { fail(err) }
     }
     function fail(err) {
-      kit = null; stop(); image.style.visibility = ''; canvas.style.display = 'none'
+      kit = null; ready = false; loading = false
+      visibility()
       if (raster) raster.dispose()
       raster = null; paintedRaster = null
-      toggle.textContent = '像素动画：加载失败，点击重试'
       console.warn('[dsh-whale-pixel]', err && err.message || err)
     }
     function signal(name, data) {
@@ -129,6 +129,9 @@
       return !!kit.palette[(current.rows[y] || '')[x]]
     }
     async function load() {
+      if (loading || disposed) return
+      loading = true; ready = false
+      visibility()
       try {
         if (raster) raster.dispose()
         raster = null; paintedRaster = null; lastPaintKey = ''
@@ -148,17 +151,16 @@
         raster = scope.DshWhalePixelRaster.create({ timings: timings, signal: controller.signal,
           onReady: function () { if (active() && canvas.style.display !== 'none') { lastPaintKey = ''; stop(); tick() } } })
         if (!await raster.ready('idle')) throw new Error('Original PNG idle frames are unavailable')
+        if (disposed) return
         if (pendingActivity) machine.event('activity', pendingActivity)
+        loading = false; ready = true
         visibility()
         raster.ready('poke-left'); raster.ready('poke-right')
       } catch (err) { if (!disposed) fail(err) }
     }
-    function clickToggle() {
-      if (!kit) { load(); return }
-      enabled = !enabled
-      try { localStorage.setItem('dshw-pixel-enabled', String(enabled)) } catch (err) {}
-      if (enabled && role !== 'default') options.selectDefault()
-      visibility()
+    function clickControl() {
+      if (role !== 'default') options.selectDefault()
+      if (!ready) load()
     }
     function onVisibility() { visibility() }
     function onEnter() { signal('notice') }
@@ -166,10 +168,10 @@
       if (disposed) return
       disposed = true; stop(); controller.abort()
       if (raster) raster.dispose()
-      image.style.visibility = ''; canvas.remove(); toggle.remove(); cache.clear()
+      canvas.remove(); control.remove(); cache.clear()
       document.removeEventListener('visibilitychange', onVisibility)
       canvas.removeEventListener('pointerenter', onEnter)
-      toggle.removeEventListener('click', clickToggle)
+      control.removeEventListener('click', clickControl)
       scope.removeEventListener('pagehide', onPageHide)
       scope.removeEventListener('pageshow', onPageShow)
       scope.removeEventListener('resize', onResize)
@@ -178,7 +180,7 @@
     function onPageHide(event) { if (event.persisted) stop(); else dispose() }
     function onPageShow() { if (!disposed) visibility() }
     function onResize() { if (active()) { lastPaintKey = ''; stop(); tick() } }
-    toggle.addEventListener('click', clickToggle)
+    control.addEventListener('click', clickControl)
     canvas.addEventListener('pointerenter', onEnter)
     document.addEventListener('visibilitychange', onVisibility)
     scope.addEventListener('pagehide', onPageHide)

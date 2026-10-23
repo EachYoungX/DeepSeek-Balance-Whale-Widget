@@ -1,6 +1,6 @@
 # DSH 鲸娘像素动画分支
 
-本分支在余额挂件 0.4.2 上增加独立的鲸娘像素播放器和状态机，安装包名沿用 `dsh-whale-widget`。分支使用说明见 [像素动画](docs/PIXEL.md)，来源见 [NOTICE](NOTICE.md)，贡献者见 [贡献说明](docs/CONTRIBUTORS.md)。下方保留原挂件使用文档。
+本分支在余额挂件 0.4.2 上增加独立的鲸娘像素播放器和状态机，安装包名沿用 `dsh-whale-widget`。默认角色固定播放原始 PNG 动画，加载期间保持透明，小黄鸭默认音量为 20%。分支使用说明见 [像素动画](docs/PIXEL.md)，来源见 [NOTICE](NOTICE.md)，贡献者见 [贡献说明](docs/CONTRIBUTORS.md)。下方保留原挂件使用文档。
 
 # DSH 小鲸鱼记账挂件（DeepSeek Balance Whale Widget）
 
@@ -129,8 +129,7 @@ dsh-whale-widget/
 ├── assets/
 │   ├── whale-widget.js       # 前端挂件本体（由宿主按 mtime 热读取）
 │   ├── DSH2.png              # README 顶部展示图
-│   ├── DSniang1.png          # 小鲸鱼本体（cut-out，气泡由代码绘制）
-│   ├── DSniang02.png         # 备用整图（兼容旧版手动安装路径）
+│   ├── whaleGirl/            # 默认鲸娘的原始透明 PNG 帧与时序
 │   ├── rua.gif               # 随机台词/撒娇动图（可选）
 │   ├── Ya1.mp3 / Ya2.mp3     # 预置音效「小黄鸭」按压 / 松开
 │   ├── D1.mp3 / D2.mp3       # 预置音效「音效1」按压 / 松开
@@ -287,7 +286,7 @@ MeteorNOX/DeepSeek-Balance-Whale-Widget，或者我本地已经有这个插件�
    【来源二：我本地已有完整资源包（zip 或已解压目录）】
    先确认「完整资源包」长什么样：一个目录，里面应当有
      package.json、cordis.patch.yml、lib/index.js、
-     assets/（含 whale-widget.js、DSniang1.png、Ya1.mp3、minecraft-exp-orb.wav、task-end-a.wav 等）、README.md
+     assets/（含 whale-widget.js、pixel-*.js、whaleGirl/、Ya1.mp3、minecraft-exp-orb.wav、task-end-a.wav 等）、README.md
    然后按下面做：
    a) 如果给我的是 zip：先解压到一个**固定、以后不会移动或删除**的目录，例如
         D:\Plugins\dsh-whale-widget
@@ -439,7 +438,7 @@ curl http://127.0.0.1:3080/dsh-whale/audio.json
   ```bash
   DSHW_TRUSTED_HOSTS=dsh.example.com,10.0.0.5:3080 dsh web
   ```
-- **图片/音效不显示、没声音**：确认插件包内 `assets/` 完整（`DSniang1.png`、`*.mp3`、`minecraft-exp-orb.wav` 等）；缺失时相关功能静默降级。
+- **图片/音效不显示、没声音**：确认插件包内 `assets/` 完整（`whaleGirl/`、`pixel-*.js`、`*.mp3`、`minecraft-exp-orb.wav` 等）；动画加载失败时可在菜单中重试。
 - **装了 IDM / 迅雷 / Free Download Manager / Motrix 等下载管理器时，每次打开 DSH 都弹"下载确认框"，目标 URL 是挂件的音效**（issue #158）：这些管理器的浏览器集成会把页面里的音效请求当成下载任务抢走。**推荐做法：把本机地址加入它的站点排除列表**（IDM：`选项 → 文件类型 / 站点排除`，把 `127.0.0.1` 与 `localhost` 加进去；其它管理器同理，关键词是"排除本机地址 / 不监控该站点"）。关掉挂件音效开关并不能消除弹窗 —— 音效元素在页面初始化时就会建立。
 - **提问 / 授权时不响、也没泡泡**：这两个事件**默认开着**（默认**只冒泡、不响**）。想听声音就去「菜单 → 音效与提示 → 全局设置」，**点一下「提问提示」/「授权提示」那一行**把它展开，勾上「提问提示音效 / 授权提示音」那一行左侧的 `[✓]`（不勾 = 静音、但照旧冒泡），再在下拉里选一个音效；不需要提示就把该区入口行左边的总开关 `[✓]` 取消。（入口行右侧的摘要会实时显示当前配置。）
 - **余额报「未配置 DEEPSEEK_API_KEY」**：去 DSH 凭据里配置 API key；**或者**用「设置 → 账号与余额」登录 DeepSeek 账号（较新 DSH 支持）—— 没配 key 时插件会自动走账号态，不需要去 platform 建 key。

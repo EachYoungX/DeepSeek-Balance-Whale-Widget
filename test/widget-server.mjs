@@ -37,7 +37,7 @@ export async function startWidgetServer(port = 0) {
       if (url.pathname === '/') {
         let html = '<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>鲸娘像素动画 · 本地验收</title>' +
           '<style>body{margin:0;background:#f3f6fc;color:#25304c;font:16px system-ui;padding:48px}main{max-width:780px;margin:auto}textarea{box-sizing:border-box;width:100%;height:130px;padding:20px;border:1px solid #c2cfe8;border-radius:16px;font:inherit}p{line-height:1.8}small{color:#6c7890}</style>' +
-          '<main id="root"><small>本地验收 · 模拟余额与会话事件</small><h1>鲸娘像素动画</h1><p>右下角角色使用插件真实客户端。点击、拖拽、等待十秒入睡，或打开菜单切换像素动画和自定义角色。</p><textarea placeholder="用于挂件识别聊天界面的模拟输入框"></textarea><p>测试余额：100 CNY。此页面与真实账户、会话和凭据分开。</p></main></html>'
+          '<main id="root"><small>本地验收 · 模拟余额与会话事件</small><h1>鲸娘像素动画</h1><p>右下角角色使用插件真实客户端。点击、拖拽、等待十秒入睡，或打开菜单选择自定义角色。</p><textarea placeholder="用于挂件识别聊天界面的模拟输入框"></textarea><p>测试余额：100 CNY。此页面与真实账户、会话和凭据分开。</p></main></html>'
         for (const tap of taps) html = tap(html)
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(html); return
       }
@@ -51,18 +51,21 @@ export async function startWidgetServer(port = 0) {
       if (url.pathname === '/dsh-whale/balance.json') {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(fixture.balanceError ? { ok: false, error: '模拟网络错误' } : {
-          ok: true, totalBalance: fixture.balance, currency: 'CNY', todayUsage: 1.25, todayUsageCurrency: 'CNY', version: '0.4.2-pixel.2', isPeak: false,
+          ok: true, totalBalance: fixture.balance, currency: 'CNY', todayUsage: 1.25, todayUsageCurrency: 'CNY', version: '0.4.2-pixel.3', isPeak: false,
         })); return
       }
       if (url.pathname === '/dsh-whale/roles.json' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ ok: true, roles: [
-          { id: 'default', name: '小鲸鱼', url: '/dsh-whale/image.png' },
+          { id: 'default', name: '小鲸鱼', url: '/dsh-whale/pixel-raster/idle/00.png' },
           { id: 'fixture', name: '测试自定义角色', url: '/__test/role.png' },
         ] })); return
       }
       if (url.pathname === '/__test/role.png') {
-        res.writeHead(200, { 'Content-Type': 'image/png' }); res.end(await readFile(path.join(root, 'assets', 'DSniang1.png'))); return
+        res.writeHead(200, { 'Content-Type': 'image/png' }); res.end(await readFile(path.join(root, 'assets', 'whaleGirl', 'img', 'happy', '00.png'))); return
+      }
+      if (url.pathname === '/dsh-whale/role-image.png' && url.searchParams.get('id') === 'fixture') {
+        res.writeHead(200, { 'Content-Type': 'image/png' }); res.end(await readFile(path.join(root, 'assets', 'whaleGirl', 'img', 'happy', '00.png'))); return
       }
       const route = routes.find(route => route.kind === 'prefix' ? url.pathname === route.path || url.pathname.startsWith(route.path + '/') : url.pathname === route.path)
       if (route) { await route.handler(req, res); return }

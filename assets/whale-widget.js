@@ -355,7 +355,7 @@ var BUBBLE_MS = 5000
 var FETCH_TIMEOUT_MS = 25000
 var BALANCE_URL = '/dsh-whale/balance.json'
 var SIZE_URL = '/dsh-whale/size.json'
-var IMG_URL = '/dsh-whale/image.png?v=2'
+var IMG_URL = '/dsh-whale/image.png?v=3'
 var GIF_URL = '/dsh-whale/rua.gif'
 var BUBBLE_URL = '/dsh-whale/bubble.json'
 
@@ -1337,14 +1337,14 @@ root.className = 'dshwv-root'
 
 var img = document.createElement('img')
 img.className = 'dshwv-img'
-// 首次渲染直接用上次保存的角色（避免刷新瞬间先闪默认鲸鱼娘再切角色）。
-// loadRoles() 异步完成后会再校验：角色仍在则保持，被删则回退默认。
-var initRoleUrl = IMG_URL
+// 默认角色由像素播放器直接绘制，加载期间保持透明；图片节点仅供自定义角色使用。
+var initRoleId = 'default', initRoleUrl = ''
 try {
-  var initRoleId = localStorage.getItem('dshw-role') || ''
+  initRoleId = localStorage.getItem('dshw-role') || 'default'
   if (initRoleId && initRoleId !== 'default') initRoleUrl = '/dsh-whale/role-image.png?id=' + encodeURIComponent(initRoleId)
 } catch (err) {}
-img.src = initRoleUrl
+img.style.display = initRoleUrl ? '' : 'none'
+if (initRoleUrl) img.src = initRoleUrl
 img.alt = 'DeepSeek 余额'
 img.draggable = false
 
@@ -19989,7 +19989,7 @@ function positionMenu() {
 
 // —— 自定义角色：列表 / 选择 / 置顶 / 删除 / 导入裁剪 ——
 var ROLE_URL = '/dsh-whale/roles.json'
-var currentRole = { id: 'default', name: '小鲸鱼', url: IMG_URL }
+var currentRole = { id: initRoleId, name: '小鲸鱼', url: initRoleUrl }
 var roleList = []
 function loadRoles() {
   try {
@@ -20007,14 +20007,12 @@ function loadRoles() {
           if (roleList[i].id === saved) { found = roleList[i]; break }
         }
         if (found) {
-          // 角色仍在：若初始已按此角色渲染（initRoleUrl 一致）则不重复切换，只补全 name/panel
-          if (currentRole.id !== found.id) applyRole(found.id, found.name, found.url)
-          else renderRolePanel()
+          applyRole(found.id, found.name, found.url)
         } else if (saved && saved !== 'default') {
           // 保存的角色已被删除：回退默认鲸鱼娘
           applyRole('default', '小鲸鱼', IMG_URL)
         }
-        // 若 saved 为空或为 default：保持当前（initRoleUrl 已是 IMG_URL）
+        // 默认角色始终由像素播放器显示。
       })
       .catch(function () {})
   } catch (err) {}
@@ -20108,13 +20106,15 @@ function makeNameCell(className, text) {
 }
 function applyRole(id, name, url) {
   currentRole = { id: id, name: name, url: url }
-  img.src = url
+  img.style.display = id === 'default' ? 'none' : ''
+  if (id === 'default') img.removeAttribute('src')
+  else img.src = url
   if (pixelAnimation) pixelAnimation.setRole(id)
   setRoleBtnText(name)
   try { localStorage.setItem('dshw-role', id) } catch (err) {}
   hitReady = false
   hitFailed = false
-  setupHitTest(url)
+  setupHitTest(id === 'default' ? '' : url)
   closeRolePanel()
   renderRolePanel()
 }
@@ -20149,7 +20149,7 @@ function renderRolePanel() {
       item.className = 'dshwv-roleitem' + (currentRole.id === r.id ? ' dshwv-roleitem-cur' : '')
       var thumb = document.createElement('img')
       thumb.className = 'dshwv-rolethumb'
-      thumb.src = r.url
+      thumb.src = r.id === 'default' ? IMG_URL : r.url
       thumb.alt = ''
       thumb.draggable = false
       var name = makeNameCell('dshwv-rolename', r.name)
@@ -21556,6 +21556,8 @@ var hitReady = false
 var hitFailed = false // 命中图加载失败（如图片 404/资源缺失）：退回矩形区域判定，绝不吞掉整页事件
 function setupHitTest(url) {
   try {
+    hitReady = false; hitFailed = false; hitCanvas = null
+    if (!url) return
     hitCanvas = document.createElement('canvas')
     hitCanvas.width = 610
     hitCanvas.height = 610
@@ -21603,7 +21605,7 @@ function setupHitTest(url) {
       hitFailed = true
       applyHitClip('')
     }
-    probe.src = url || IMG_URL
+    probe.src = url
   } catch (err) {}
 }
 // 退回「图像矩形」判定：命中图不可用（加载失败 / 画布读不出来）时只认挂件图片的矩形区域，

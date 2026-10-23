@@ -45,7 +45,24 @@ async function openMenu() {
 }
 
 try {
-  await page.goto(app.url)
+  await action('cold startup stays transparent until PNGs are ready, even with the retired switch disabled', async () => {
+    let unblock, entered, resumed
+    const blocked = new Promise(resolve => { unblock = resolve })
+    const requested = new Promise(resolve => { entered = resolve })
+    const continued = new Promise(resolve => { resumed = resolve })
+    await page.addInitScript(() => localStorage.setItem('dshw-pixel-enabled', 'false'))
+    const delay = async route => { entered(); await blocked; try { await route.continue() } finally { resumed() } }
+    await page.route('**/dsh-whale/pixel-frames.json', delay)
+    try {
+      await page.goto(app.url, { waitUntil: 'domcontentloaded' })
+      await requested
+      await page.waitForSelector('.dshwv-root')
+      assert.equal(await page.locator('img.dshwv-img').getAttribute('src'), null)
+      assert.equal(await page.locator('img.dshwv-img').isVisible(), false)
+      assert.equal(await page.locator('.dshwv-pixel').isVisible(), false)
+      assert.equal(await page.locator('.dshwv-pixel-status').textContent(), '像素动画：加载中…')
+    } finally { unblock(); await continued; await page.unroute('**/dsh-whale/pixel-frames.json', delay) }
+  })
   await action('real plugin boots with local frames and a visible pixel canvas', async () => {
     await page.waitForSelector('.dshwv-pixel', { state: 'visible' })
     assert.equal(await page.locator('.dshwv-pixel').evaluate(el => getComputedStyle(el).imageRendering), 'pixelated')
@@ -63,6 +80,10 @@ try {
     })
     assert.ok(detail.colors > 40, 'Original PNG details must not collapse into the 30-color terminal grid')
     assert.ok(Math.abs(detail.backing - detail.display * detail.dpr) <= 1)
+    assert.equal(await page.locator('img.dshwv-img').getAttribute('src'), null)
+    const legacyThumbnail = await page.request.get(app.url + '/dsh-whale/image.png')
+    assert.equal(legacyThumbnail.status(), 200)
+    assert.deepEqual(await legacyThumbnail.body(), await nativeFrame.body())
   })
   await action('default duck volume is 20% and user volume overrides survive saves', async () => {
     const response = await page.request.get(app.url + '/dsh-whale/size.json')
@@ -126,22 +147,35 @@ try {
     await page.dispatchEvent('.dshwv-pixel', 'pointerup', { clientX: p.x, clientY: p.y, button: 0, pointerType: 'mouse' })
     await page.mouse.move(10, 10)
   })
-  await action('pixel switch restores the original image and persists across reload', async () => {
-    await openMenu(); await page.locator('.dshwv-pixel-toggle').click()
-    assert.equal(await page.locator('.dshwv-pixel').isVisible(), false)
-    assert.equal(await page.locator('img.dshwv-img').evaluate(el => getComputedStyle(el).visibility), 'visible')
-    await page.reload(); await page.waitForSelector('.dshwv-root')
-    assert.equal(await page.locator('.dshwv-pixel').isVisible(), false)
-    await openMenu(); await page.locator('.dshwv-pixel-toggle').click()
-    await page.waitForSelector('.dshwv-pixel', { state: 'visible' })
+  await action('load failures remain transparent and retry restores PNG animation', async () => {
+    const reject = route => route.fulfill({ status: 503, body: 'test unavailable' })
+    await page.route('**/dsh-whale/pixel-raster/timings.json', reject)
+    try {
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(() => document.querySelector('.dshwv-pixel-status')?.textContent.includes('加载失败'))
+      assert.equal(await page.locator('img.dshwv-img').getAttribute('src'), null)
+      assert.equal(await page.locator('img.dshwv-img').isVisible(), false)
+      assert.equal(await page.locator('.dshwv-pixel').isVisible(), false)
+    } finally { await page.unroute('**/dsh-whale/pixel-raster/timings.json', reject) }
+    await page.locator('.dshwv-menu-btn').click()
+    await page.getByRole('button', { name: '像素动画：加载失败，点击重试', exact: true }).click()
+    await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+    assert.equal(await page.getByRole('button', { name: '像素动画：已启用', exact: true }).isDisabled(), true)
   })
-  await action('custom roles keep the original image path and default role restores animation', async () => {
+  await action('custom roles survive reload and returning to default clears the image source', async () => {
     await page.locator('.dshwv-rolebtn').click()
     await page.locator('.dshwv-roleitem').filter({ hasText: '测试自定义角色' }).click()
     assert.equal(await page.locator('.dshwv-pixel').isVisible(), false)
-    await page.locator('.dshwv-rolebtn').click()
-    await page.locator('.dshwv-roleitem').filter({ hasText: '小鲸鱼' }).click()
+    assert.equal(await page.locator('img.dshwv-img').isVisible(), true)
+    await page.reload()
+    await page.waitForFunction(() => document.querySelector('img.dshwv-img')?.complete && document.querySelector('img.dshwv-img')?.naturalWidth > 0)
+    assert.equal(await page.locator('.dshwv-pixel').isVisible(), false)
+    assert.equal(await page.locator('img.dshwv-img').isVisible(), true)
+    await page.locator('.dshwv-menu-btn').click()
+    await page.getByRole('button', { name: '使用鲸娘像素动画', exact: true }).click()
     await page.waitForSelector('.dshwv-pixel', { state: 'visible' })
+    assert.equal(await page.locator('img.dshwv-img').getAttribute('src'), null)
+    assert.equal(await page.locator('img.dshwv-img').isVisible(), false)
   })
   await action('mobile viewport retains a visible, interactive character', async () => {
     await page.setViewportSize({ width: 390, height: 844 })

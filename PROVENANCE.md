@@ -2,7 +2,7 @@
 
 ## 像素动画分支补充
 
-新增 `assets/pixel-*.js` 为 MIT 代码。`assets/whaleGirl/frames.json` 的来源、固定版本与素材说明见 `NOTICE.md`、`upstream.lock.json` 及同目录随附的上游 README 和 LICENSE。下文原有美术素材声明继续适用于余额挂件原有素材。
+新增 `assets/pixel-*.js` 为 MIT 代码。`assets/whaleGirl/` 的来源、固定版本与素材说明见 `NOTICE.md`、`upstream.lock.json` 及同目录随附的上游 README 和 LICENSE。`0.4.2-pixel.3` 已移除旧角色图片 `DSniang1.png`、`DSniang02.png`；下文保留其历史来源说明，以及对余额挂件其它原有素材的声明。
 
 本仓库的**代码**按 MIT 许可（见 [`LICENSE`](LICENSE)）。`assets/` 目录下的**美术素材**（图片 / 动图 / 音效）**不在 MIT 覆盖范围内**，按下面的说明「原样提供」。
 

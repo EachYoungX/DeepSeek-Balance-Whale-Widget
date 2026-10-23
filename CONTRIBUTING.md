@@ -48,7 +48,7 @@ dsh-whale-widget/
 │
 ├── assets/
 │   ├── whale-widget.js          16,853 行   前端挂件本体（**宿主按 mtime 热读这个单文件**）
-│   ├── DSH2.png / DSniang1.png / DSniang02.png   角色图与 README 展示图
+│   ├── DSH2.png                原挂件 README 展示图
 │   ├── rua.gif / bubble-petpet.gif / bubble-money1.gif
 │   ├── Ya1.mp3 / Ya2.mp3 / D1.mp3 / D2.mp3  预置音效
 │   └── minecraft-exp-orb.wav / task-end-a.wav

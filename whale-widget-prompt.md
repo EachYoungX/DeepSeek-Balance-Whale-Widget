@@ -1,5 +1,7 @@
 # DeepSeek 余额小鲸鱼挂件 —— 完整生成提示词
 
+像素动画分支的角色渲染以 [docs/PIXEL.md](docs/PIXEL.md) 为准：默认角色直接播放原始 PNG 帧，加载期间保持透明，旧角色静态素材已移除。下文保留原挂件的历史规格。
+
 > 用途：在 DeepSeek Harness（DSH）的 Web 界面右下角常驻一个「小鲸鱼余额挂件」。
 > 本提示词汇总了完整需求、架构、全部行为规格、视觉参数与踩坑结论，可直接交给 AI 复现或维护。
 > 文中 `C:\Users\Meteor\.dsh\profiles\web\`、`D:\TestBox\deepseek\` 等为本机示例路径，迁移时请替换为你环境中的实际路径。

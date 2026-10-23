@@ -12,11 +12,11 @@
 dsh plugin --profile web add link:.
 ```
 
-重启 `dsh web` 并刷新浏览器。包名沿用 `dsh-whale-widget`，作为原挂件的定制版本安装。角色菜单保留原角色与自定义图片入口。
+重启 `dsh web` 并刷新浏览器。包名沿用 `dsh-whale-widget`，作为原挂件的定制版本安装。默认角色使用鲸娘像素动画，角色菜单保留自定义图片入口。
 
-DeepSeek Harness Desktop 使用其内置 `plugin_manager` 接入本目录，保持 `link:` 安装即可加载修改后的代码和资源。此次升级新增 PNG 路由，需完全退出桌面客户端（含托盘）后重开；客户端菜单版本应为 `0.4.2-pixel.2`。
+DeepSeek Harness Desktop 使用其内置 `plugin_manager` 接入本目录，保持 `link:` 安装即可加载修改后的代码和资源。升级后需完全退出桌面客户端（含托盘）后重开；客户端菜单版本应为 `0.4.2-pixel.3`。
 
-首次使用默认开启像素动画。打开挂件菜单，点击“像素动画：开 / 关”切回原角色；选择自定义图片时显示该图片，返回默认角色时恢复像素动画。开关使用浏览器本地存储保存。
+`0.4.2-pixel.3` 移除旧版默认角色图片及切回旧图的开关。默认角色固定使用像素动画，加载期间保持透明，加载失败可在菜单中点击重试。先前保存的动画关闭状态自动失效。选择自定义图片时显示该图片，点击“使用鲸娘像素动画”或返回默认角色即可恢复动画。角色与资源管理中的默认缩略图也采用像素帧。
 
 ## 动作与事件
 
@@ -48,7 +48,7 @@ DeepSeek Harness Desktop 使用其内置 `plugin_manager` 接入本目录，保�
 
 - `assets/pixel-core.js`：帧表校验、时序、语义回落、交互优先级和睡眠状态机。
 - `assets/pixel-raster.js`：原始 PNG 加载、逐动画解码缓存、高清绘制与 alpha 命中掩码。
-- `assets/pixel-adapter.js`：canvas、透明命中、菜单开关、角色切换与绘制生命周期。
+- `assets/pixel-adapter.js`：canvas、透明命中、加载重试、角色切换与绘制生命周期。
 - `lib/pixel-animation.mjs`：DSH 事件聚合，输出语义、计数与修订号。
 - `assets/whale-widget.js` / `lib/index.js`：少量桥接调用、受原信任栅栏保护的素材路由与脚本加载。
 
