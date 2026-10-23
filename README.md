@@ -1,10 +1,16 @@
-# DSH 鲸娘像素动画
+# DSH 鲸娘余额插件像素动画
 
 为 DeepSeek Harness Web 与 Desktop 提供会随工作状态变化的鲸娘动画，并保留原余额挂件的记账、泡泡、音效和自定义角色功能。
 
-本项目由 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget) 复刻，动画资源来自 [ccch1mneyyy/dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)。原项目 README 原文保存在 [README.upstream.md](README.upstream.md)；其中的旧版本安装命令对应原项目。本分支的安装与维护以本页及 [安装指南](docs/INSTALL.md) 为准。
+- 本项目由 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget) 复刻
+- 动画资源来自 [ccch1mneyyy/dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)
+- 原项目 README 原文请阅读 [README.upstream.md](README.upstream.md)；其中的旧版本安装命令对应原项目。
+- 本分支的安装与维护以本页及 [安装指南](docs/INSTALL.md) 为准。
 
-![鲸娘原始像素帧](assets/whaleGirl/img/idle/00.png)
+![鲸娘原始像素帧1](assets/whaleGirl/img/idle/00.png)
+![鲸娘原始像素帧2](assets/whaleGirl/img/idle-spout/06.png)
+![鲸娘原始像素帧2](assets/whaleGirl/img/poke-left/06.png)
+![截图示意](assets/2026-10-23_14-20-21.png)
 
 ## 本分支的变化
 
