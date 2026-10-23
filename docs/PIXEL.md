@@ -65,8 +65,13 @@ node scripts/sync-whale-girl.mjs
 ```powershell
 npm run check
 npm run preview
+npm run patches
 ```
 
 `preview` 在 `http://127.0.0.1:3081` 运行真实挂件客户端，使用隔离的模拟余额和会话事件。浏览器验收脚本为 `npm run test:browser`，需本机提供 Playwright；可用 `PIXEL_PLAYWRIGHT_PATH` 指定现有 Playwright 包路径。预览与截图保存在忽略目录 `.test-output`。
+
+`patches` 将锁定余额挂件提交之后的定制提交导出为 `.test-output/pixel-animation.patch`，保留每个提交的作者，可在相同基线上用 `git am` 重放。迁移到新版本时先检查接入点，再重放并验收。
+
+当前 `origin` 指向 `EachYoungX/DeepSeek-Balance-Whale-Widget`，`upstream` 指向 `MeteorNOX/DeepSeek-Balance-Whale-Widget`。GitHub Desktop 选择“我自己用”，在 `pixel-animation` 分支点击“Publish branch”即可发布定制分支。推送登录仍使用维护者自己的 GitHub 账号；提交作者由每条 commit 中的署名决定。
 
 来源和许可范围见 [NOTICE](../NOTICE.md) 与 [PROVENANCE](../PROVENANCE.md)，贡献者见 [CONTRIBUTORS](CONTRIBUTORS.md)。
