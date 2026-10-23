@@ -7,7 +7,8 @@
     "check": "node scripts/check.mjs",
     "test:browser": "node test/pixel-browser.mjs",
     "preview": "node test/widget-server.mjs",
-    "patches": "node scripts/export-patches.mjs"
+    "patches": "node scripts/export-patches.mjs",
+    "release:bundle": "node scripts/build-release.mjs"
   },
   "contributors": [
     { "name": "EachYoungX", "url": "https://github.com/EachYoungX" },
@@ -30,6 +31,7 @@
     "icon.png",
     "cordis.patch.yml",
     "README.md",
+    "README.upstream.md",
     "PROVENANCE.md",
     "NOTICE.md",
     "docs",

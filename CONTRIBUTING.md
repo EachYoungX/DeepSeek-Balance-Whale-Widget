@@ -1,5 +1,7 @@
 # 贡献指南.CONTRIBUTING
 
+本 fork 的首页与安装入口见 [README.md](README.md)，原项目 README 原文见 [README.upstream.md](README.upstream.md)，GitHub Release 的产物与流程见 [docs/RELEASING.md](docs/RELEASING.md)。以下保留原项目贡献约定与结构说明。
+
 感谢你愿意贡献！为了不让任何人的努力白费，请先花一分钟读完本文，无论你是人类，鲸鱼娘，还是硅基生命！
 
 ## 如何贡献？
