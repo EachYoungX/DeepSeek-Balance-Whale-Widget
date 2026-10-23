@@ -30,6 +30,8 @@
 
 像素分支新增的独立模块为 `assets/pixel-core.js`、`assets/pixel-adapter.js`、`lib/pixel-animation.mjs`，帧表位于 `assets/whaleGirl`。公开分支文档位于 `docs`，研究与开发记录位于忽略目录 `internal_docs`。资源锁定见 `upstream.lock.json`，同步与检查工具位于 `scripts`，测试与隔离预览位于 `test`。分支维护方式见 [docs/PIXEL.md](docs/PIXEL.md)。
 
+原始 PNG 播放与解码缓存位于 `assets/pixel-raster.js`，源图和时序索引位于 `assets/whaleGirl/img/`。新增素材须登记 SHA-256，并保持 PNG 与字符格动画的帧数、`dur` 一致。
+
 下面是你打开仓库第一时间看到的东西。行数按仓库内 LF 内容统计（git 里的真实内容，不是 Windows 工作区的 CRLF），口径与维护者的自检脚本一致。
 
 ```

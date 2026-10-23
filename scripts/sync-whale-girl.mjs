@@ -24,21 +24,36 @@ async function download(url) {
 }
 
 // Validate every download before changing any checked-in file.
-const files = await Promise.all(lock.files.map(async entry => {
-  const target = path.resolve(root, entry.target)
-  const relative = path.relative(root, target)
-  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid target path')
-  const bytes = check ? await readFile(target) : await download(
-    `https://raw.githubusercontent.com/${lock.repository}/${lock.commit}/${entry.source}`)
-  const hash = createHash('sha256').update(bytes).digest('hex')
-  if (hash !== entry.sha256) throw new Error(`SHA-256 mismatch: ${entry.target}`)
-  return { target, bytes, entry }
-}))
-for (const { target, bytes, entry } of files) {
+let cursor = 0
+const files = new Array(lock.files.length)
+let downloaded = 0
+async function worker() {
+  while (cursor < lock.files.length) {
+    const index = cursor++, entry = lock.files[index]
+    const target = path.resolve(root, entry.target)
+    const relative = path.relative(root, target)
+    if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Invalid target path')
+    let bytes = null
+    try {
+      const local = await readFile(target)
+      if (createHash('sha256').update(local).digest('hex') === entry.sha256) bytes = local
+      else if (check) throw new Error(`SHA-256 mismatch: ${entry.target}`)
+    } catch (error) { if (check) throw error }
+    if (!bytes) {
+      bytes = await download(`https://raw.githubusercontent.com/${lock.repository}/${lock.commit}/${entry.source}`)
+      downloaded++
+    }
+    const hash = createHash('sha256').update(bytes).digest('hex')
+    if (hash !== entry.sha256) throw new Error(`SHA-256 mismatch: ${entry.target}`)
+    files[index] = { target, bytes, entry }
+  }
+}
+await Promise.all(Array.from({ length: 8 }, worker))
+for (const { target, bytes } of files) {
   if (!check) {
     await mkdir(path.dirname(target), { recursive: true })
     await writeFile(target + '.tmp', bytes)
     await rename(target + '.tmp', target)
   }
-  console.log(`${check ? 'Verified' : 'Synced'} ${entry.target}`)
 }
+console.log(`${check ? 'Verified' : 'Synced'} ${files.length} locked resources (${downloaded} downloaded)`)

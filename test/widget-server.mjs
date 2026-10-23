@@ -51,7 +51,7 @@ export async function startWidgetServer(port = 0) {
       if (url.pathname === '/dsh-whale/balance.json') {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(fixture.balanceError ? { ok: false, error: '模拟网络错误' } : {
-          ok: true, totalBalance: fixture.balance, currency: 'CNY', todayUsage: 1.25, todayUsageCurrency: 'CNY', version: '0.4.2-pixel.1', isPeak: false,
+          ok: true, totalBalance: fixture.balance, currency: 'CNY', todayUsage: 1.25, todayUsageCurrency: 'CNY', version: '0.4.2-pixel.2', isPeak: false,
         })); return
       }
       if (url.pathname === '/dsh-whale/roles.json' && req.method === 'GET') {
@@ -64,7 +64,7 @@ export async function startWidgetServer(port = 0) {
       if (url.pathname === '/__test/role.png') {
         res.writeHead(200, { 'Content-Type': 'image/png' }); res.end(await readFile(path.join(root, 'assets', 'DSniang1.png'))); return
       }
-      const route = routes.find(route => route.kind === 'prefix' ? url.pathname.startsWith(route.path) : url.pathname === route.path)
+      const route = routes.find(route => route.kind === 'prefix' ? url.pathname === route.path || url.pathname.startsWith(route.path + '/') : url.pathname === route.path)
       if (route) { await route.handler(req, res); return }
       res.writeHead(404); res.end('Not found')
     } catch (error) { console.error(error); res.writeHead(500); res.end('Fixture error') }

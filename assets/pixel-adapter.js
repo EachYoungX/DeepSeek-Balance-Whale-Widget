@@ -17,7 +17,8 @@
     var image = options.image, parent = image.parentNode, canvas = document.createElement('canvas')
     var kit = null, machine = null, context = null, current = null, timer = null, raf = null, disposed = false
     var role = options.role || 'default', enabled = true, cache = new Map(), pendingActivity = null
-    var controller = new AbortController()
+    var controller = new AbortController(), raster = null, paintedRaster = null
+    var lastPaintKey = '', lastPaintFrame = -1
     try { enabled = localStorage.getItem('dshw-pixel-enabled') !== 'false' } catch (err) {}
     canvas.className = 'dshwv-img dshwv-pixel'
     canvas.style.imageRendering = 'pixelated'
@@ -43,9 +44,25 @@
       canvas.style.display = on ? 'block' : 'none'
       toggle.textContent = '像素动画：' + (enabled ? '开' : '关') + (enabled && role !== 'default' ? '（默认角色）' : '')
       toggle.setAttribute('aria-pressed', String(enabled))
+      lastPaintKey = ''
       if (on && !document.hidden) tick()
     }
     function renderFrame(sample) {
+      if (raster) {
+        var nativeFrame = raster.frame(sample.key, sample.frame)
+        if (nativeFrame) {
+          raster.paint(context, canvas, nativeFrame)
+          paintedRaster = nativeFrame
+          canvas.dataset.renderer = 'png'
+          canvas.dataset.animation = sample.key
+          canvas.dataset.frame = String(sample.frame)
+          lastPaintKey = sample.key; lastPaintFrame = sample.frame
+          return
+        }
+        // Keep the last detailed frame while a new animation decodes.
+        if (paintedRaster && !raster.failed(sample.key)) return
+      }
+      paintedRaster = null
       var id = sample.key + ':' + sample.frame
       var rendered = cache.get(id)
       var box = kit.bounds, size = Math.max(box.width, box.height)
@@ -63,22 +80,27 @@
         rendered = { data: new ImageData(pixels, size, size), clip: polygon ? 'polygon(' + polygon + ')' : 'inset(100%)' }
         cache.set(id, rendered)
       }
+      if (canvas.width !== size || canvas.height !== size) canvas.width = canvas.height = size
       context.putImageData(rendered.data, 0, 0)
       canvas.style.clipPath = rendered.clip
+      canvas.dataset.renderer = 'grid-fallback'
       canvas.dataset.animation = sample.key
       canvas.dataset.frame = String(sample.frame)
+      lastPaintKey = sample.key; lastPaintFrame = sample.frame
     }
     function tick() {
       if (!active() || document.hidden) return
       try {
         var sample = machine.sample()
-        if (!current || sample.key !== current.key || sample.frame !== current.frame) renderFrame(sample)
+        if (!current || sample.key !== lastPaintKey || sample.frame !== lastPaintFrame || raster && canvas.dataset.renderer !== 'png') renderFrame(sample)
         current = sample
         timer = setTimeout(function () { timer = null; raf = requestAnimationFrame(function () { raf = null; tick() }) }, sample.nextMs)
       } catch (err) { fail(err) }
     }
     function fail(err) {
       kit = null; stop(); image.style.visibility = ''; canvas.style.display = 'none'
+      if (raster) raster.dispose()
+      raster = null; paintedRaster = null
       toggle.textContent = '像素动画：加载失败，点击重试'
       console.warn('[dsh-whale-pixel]', err && err.message || err)
     }
@@ -100,6 +122,7 @@
       var rx = (event.clientX - rect.left) / rect.width, ry = (event.clientY - rect.top) / rect.height
       if (rx < 0 || ry < 0 || rx >= 1 || ry >= 1) return false
       if (flip) rx = 1 - rx
+      if (paintedRaster && raster) return raster.hit(paintedRaster, rx, ry)
       var size = canvas.width
       var x = Math.min(size - 1, Math.floor(rx * size)) - (size - box.width) + box.x
       var y = Math.floor(ry * size) - (size - box.height) + box.y
@@ -107,6 +130,8 @@
     }
     async function load() {
       try {
+        if (raster) raster.dispose()
+        raster = null; paintedRaster = null; lastPaintKey = ''
         var response = await fetch('/dsh-whale/pixel-frames.json', { signal: controller.signal })
         if (!response.ok) throw new Error('Frame data: HTTP ' + response.status)
         var next = core.compileKit(await response.json())
@@ -116,8 +141,16 @@
         context = canvas.getContext('2d')
         if (!context) throw new Error('Canvas 2D is unavailable')
         context.imageSmoothingEnabled = false
+        if (!scope.DshWhalePixelRaster) throw new Error('PNG renderer is unavailable')
+        var rasterResponse = await fetch('/dsh-whale/pixel-raster/timings.json', { signal: controller.signal })
+        if (!rasterResponse.ok) throw new Error('PNG index: HTTP ' + rasterResponse.status)
+        var timings = core.compileRasterTimings(await rasterResponse.json(), kit)
+        raster = scope.DshWhalePixelRaster.create({ timings: timings, signal: controller.signal,
+          onReady: function () { if (active() && canvas.style.display !== 'none') { lastPaintKey = ''; stop(); tick() } } })
+        if (!await raster.ready('idle')) throw new Error('Original PNG idle frames are unavailable')
         if (pendingActivity) machine.event('activity', pendingActivity)
         visibility()
+        raster.ready('poke-left'); raster.ready('poke-right')
       } catch (err) { if (!disposed) fail(err) }
     }
     function clickToggle() {
@@ -132,20 +165,27 @@
     function dispose() {
       if (disposed) return
       disposed = true; stop(); controller.abort()
+      if (raster) raster.dispose()
       image.style.visibility = ''; canvas.remove(); toggle.remove(); cache.clear()
       document.removeEventListener('visibilitychange', onVisibility)
       canvas.removeEventListener('pointerenter', onEnter)
       toggle.removeEventListener('click', clickToggle)
       scope.removeEventListener('pagehide', onPageHide)
       scope.removeEventListener('pageshow', onPageShow)
+      scope.removeEventListener('resize', onResize)
+      if (resizeObserver) resizeObserver.disconnect()
     }
     function onPageHide(event) { if (event.persisted) stop(); else dispose() }
     function onPageShow() { if (!disposed) visibility() }
+    function onResize() { if (active()) { lastPaintKey = ''; stop(); tick() } }
     toggle.addEventListener('click', clickToggle)
     canvas.addEventListener('pointerenter', onEnter)
     document.addEventListener('visibilitychange', onVisibility)
     scope.addEventListener('pagehide', onPageHide)
     scope.addEventListener('pageshow', onPageShow)
+    scope.addEventListener('resize', onResize)
+    var resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(onResize) : null
+    if (resizeObserver) resizeObserver.observe(canvas)
     load()
     return { signal: signal, hit: hit, active: active,
       setRole: function (id) { role = id; visibility() },

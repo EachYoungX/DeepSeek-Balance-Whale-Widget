@@ -56,6 +56,18 @@
     return 'idle'
   }
 
+  function compileRasterTimings(raw, kit) {
+    if (!raw || typeof raw !== 'object' || Object.keys(raw).length !== Object.keys(kit.byKey).length) throw new Error('Invalid PNG animation index')
+    Object.keys(kit.byKey).forEach(function (key) {
+      var frames = raw[key], animation = kit.byKey[key]
+      if (!Array.isArray(frames) || frames.length !== animation.frames.length) throw new Error('PNG frame count mismatch: ' + key)
+      frames.forEach(function (frame, index) {
+        if (!frame || frame.file !== String(index).padStart(2, '0') + '.png' || frame.dur !== animation.frames[index].dur) throw new Error('PNG frame timing mismatch: ' + key)
+      })
+    })
+    return raw
+  }
+
   function createMachine(kit, options) {
     options = options || {}
     var clock = options.clock || Date.now, sleepDelay = options.sleepDelay === undefined ? 10_000 : options.sleepDelay
@@ -152,6 +164,6 @@
     }
     return { event: event, sample: sample }
   }
-  scope.DshWhalePixelCore = Object.freeze({ compileKit: compileKit, frameAt: frameAt,
+  scope.DshWhalePixelCore = Object.freeze({ compileKit: compileKit, compileRasterTimings: compileRasterTimings, frameAt: frameAt,
     resolveKey: resolveKey, createMachine: createMachine, semantics: SEMANTICS })
 })(typeof globalThis === 'object' ? globalThis : window)

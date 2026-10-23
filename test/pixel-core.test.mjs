@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import '../assets/pixel-core.js'
 
-const { compileKit, frameAt, resolveKey, createMachine } = globalThis.DshWhalePixelCore
+const { compileKit, compileRasterTimings, frameAt, resolveKey, createMachine } = globalThis.DshWhalePixelCore
 const raw = JSON.parse(readFileSync(new URL('../assets/whaleGirl/frames.json', import.meta.url)))
 const kit = compileKit(raw)
+const rasterTimings = JSON.parse(readFileSync(new URL('../assets/whaleGirl/img/timings.json', import.meta.url)))
 function machine() { return createMachine(kit, { clock: () => 0 }) }
 
 test('all vendored frames compile with a lossless, stable crop and case-sensitive colors', () => {
@@ -21,6 +22,18 @@ test('durations advance at exact boundaries, loop, and clamp one-shot playback',
   assert.equal(frameAt(animation, animation.frames[0].dur), 1)
   assert.equal(frameAt(animation, animation.totalMs), 0)
   assert.equal(frameAt(animation, animation.totalMs * 3, false), animation.frames.length - 1)
+})
+test('all 267 original PNGs match frame timing and preserve the source resolution', () => {
+  compileRasterTimings(rasterTimings, kit)
+  for (const [key, frames] of Object.entries(rasterTimings)) for (const frame of frames) {
+    const bytes = readFileSync(new URL('../assets/whaleGirl/img/' + key + '/' + frame.file, import.meta.url))
+    assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a')
+    assert.equal(bytes.readUInt32BE(16), 301)
+    assert.equal(bytes.readUInt32BE(20), 288)
+  }
+  const broken = structuredClone(rasterTimings)
+  broken.idle[0].dur++
+  assert.throws(() => compileRasterTimings(broken, kit), /timing mismatch/)
 })
 test('whaleGirl semantic, heart, mood and idle fallback order matches the source skin', () => {
   assert.equal(resolveKey(kit, 'happy'), 'thumbs-up')

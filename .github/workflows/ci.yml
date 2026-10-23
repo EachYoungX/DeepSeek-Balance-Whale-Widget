@@ -37,6 +37,7 @@ jobs:
         run: |
           node scripts/sync-whale-girl.mjs --check
           node --check assets/pixel-core.js
+          node --check assets/pixel-raster.js
           node --check assets/pixel-adapter.js
           node --check lib/pixel-animation.mjs
           node --test test/pixel-core.test.mjs test/pixel-activity.test.mjs

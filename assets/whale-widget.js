@@ -1829,7 +1829,7 @@ function taskEndTogglePin(v) {
 // 这里对 0 / NaN / 越界都给出确定行为：0 就是静音，NaN 才回落默认值。
 function soundVolClamped(fallback) {
   var v = Number(soundVol)
-  if (!isFinite(v)) v = (typeof fallback === "number") ? fallback : 0.9
+  if (!isFinite(v)) v = (typeof fallback === "number") ? fallback : 0.2
   return Math.max(0, Math.min(1, v))
 }
 // v778：**音量解析器 = 音量的唯一真源**。所有播放入口都必须经过它取音量（禁止各自去读全局），
@@ -1878,8 +1878,8 @@ function soundVolumeOf(kind, override) {
         if (isFinite(v) && v >= 0) return Math.max(0, Math.min(2, v)) // v859：最高 200%
       }
     }
-    return soundVolClamped(0.9)
-  } catch (err) { return soundVolClamped(0.9) }
+    return soundVolClamped(0.2)
+  } catch (err) { return soundVolClamped(0.2) }
 }
 // v778：绑定音（按压 / 提问 / 授权 / 试听）—— 把 `{sel, vol}` **显式传进去**。
 //   旧实现靠"临时把全局 soundVol / usageSet.taskEnd 改掉、finally 再改回来"来传值；那正是
@@ -2055,10 +2055,10 @@ volInput.min = '0'
 volInput.max = '1'
 volInput.step = '0.05'
 volInput.className = 'dshwv-range'
-volInput.value = '1'
+volInput.value = '0.2'
 var volPct = document.createElement('span')
 volPct.className = 'dshwv-volpct'
-volPct.textContent = '100%'
+volPct.textContent = '20%'
 volInput.addEventListener('input', function () { setVol(volInput.value) })
 // 音效总开关（v753/issue #135 引入；v762 起只由「提示与音效设置」面板 ① 表头的同名开关驱动，
 // 主菜单「音效与提示」行不再放它 —— 但元素保留，因为 setSoundOn()/配置回填会同步它的 checked）
@@ -3177,7 +3177,7 @@ function buildUsageSubShell() {
 function soundEventDefaults() {
   return {
     // 按压音效（按压 + 松开）：音量与音效组仍在 .dsh-size.json（vol / soundSet），这里只占位
-    press: { vol: 1 },
+    press: { vol: 0.2 },
     // ⚠️ turnCost **刻意不带** soundOn：它的「这个音效播不播」就是既有的 usageSet.taskEnd.on
     //    （宿主 soundEventsDefaults() 的注释与实现完全一致）。
     //    若给它加 soundOn: true 再同步写 taskEnd.on，会把老用户的任务结束音从「默认关」变成
@@ -19329,7 +19329,7 @@ function refresh(manual) {
     })
 }
 var soundOn = true
-var soundVol = 0.9
+var soundVol = 0.2
 // v866（用户要求）：按压/松开音的**独立**开关 —— 以前 ① 区那个 [✓] 其实是全局 soundOn 兼着当它用，
 //   用户希望它"真正只管按压"。true/false 落 .dsh-size.json 的 pressOn；soundOn 改为**派生**（见 refreshSoundMaster()）。
 var pressOn = true
