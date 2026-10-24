@@ -21,9 +21,9 @@
 - 对话框默认使用阶梯像素边框与内置中文像素字体；菜单可切换“原框像素化”或“经典样式”。
 - 自定义上传的角色、泡泡、账本与其它原有功能继续使用。完整行为见 [像素动画说明](docs/PIXEL.md)。
 
-对话框效果：左侧为默认像素边框，右侧为原框缩小后最近邻放大的效果。
+对话框效果：左侧为默认像素边框，右侧为原框缩小、颜色归一后生成的像素 SVG，保留深蓝描边、白色填充与透明背景。
 
-<img src="assets/previews/dialogue-pixel.png" width="343" alt="像素边框与中文像素字体"> <img src="assets/previews/dialogue-raster.png" width="343" alt="原框缩小后最近邻放大与中文像素字体">
+<img src="assets/previews/dialogue-pixel.png" width="343" alt="像素边框与中文像素字体"> <img src="assets/previews/dialogue-raster.png" width="343" alt="原框颜色归一后的像素 SVG 与中文像素字体">
 
 ## 下载与安装
 

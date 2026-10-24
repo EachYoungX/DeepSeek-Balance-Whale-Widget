@@ -44,6 +44,29 @@ async function openMenu() {
   await page.waitForFunction(() => document.querySelector('.dshwv-menu').classList.contains('dshwv-menu-open'))
 }
 
+async function displayedFrameColors(targetPage) {
+  await targetPage.locator('.dshwv-bubble-raster').evaluate(el => {
+    const svg = el.cloneNode(true); svg.removeAttribute('class')
+    svg.setAttribute('width', '431'); svg.setAttribute('height', '293')
+    const wrap = document.createElement('div'); wrap.id = 'pixel-svg-display-fixture'
+    wrap.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483647;background:#fb00f9;width:431px;height:293px'
+    wrap.appendChild(svg); document.body.appendChild(wrap)
+  })
+  try {
+    // Read the actual browser-composited pixels. Canvas drawImage(SVG) can introduce
+    // its own intermediate scaling, independently of the inline SVG's crispEdges.
+    const screenshot = await targetPage.locator('#pixel-svg-display-fixture').screenshot()
+    return await targetPage.evaluate(async base64 => {
+      const image = new Image(); image.src = 'data:image/png;base64,' + base64; await image.decode()
+      const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight
+      const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0)
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data, colors = new Set()
+      for (let i = 0; i < pixels.length; i += 4) colors.add([...pixels.slice(i, i + 4)].join(','))
+      return [...colors].sort()
+    }, screenshot.toString('base64'))
+  } finally { await targetPage.locator('#pixel-svg-display-fixture').evaluate(el => el.remove()) }
+}
+
 try {
   await action('cold startup stays transparent until PNGs are ready, even with the retired switch disabled', async () => {
     let unblock, entered, resumed
@@ -127,19 +150,45 @@ try {
     await page.waitForFunction(before => !document.querySelector('.dshwv-pop').classList.contains('dshwv-pop-open') || document.querySelector('.dshwv-text').textContent !== before, before)
     await page.mouse.move(10, 10)
   })
-  await action('frame downsampling uses nearest-neighbour rendering; classic and pixel choices persist', async () => {
+  await action('pixelated frames contain only original-color SVG contours; classic and pixel choices persist', async () => {
     await openMenu()
     await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
     await page.waitForSelector('.dshwv-raster-ready')
-    const raster = await page.locator('.dshwv-bubble-raster').evaluate(el => {
-      const context = el.getContext('2d'), pixels = context.getImageData(0, 0, el.width, el.height).data
-      return { source: [el.dataset.sourceWidth, el.dataset.sourceHeight], smooth: context.imageSmoothingEnabled,
-        opaque: pixels.some((value, i) => i % 4 === 3 && value > 0), width: el.width, expected: Math.round(el.getBoundingClientRect().width * devicePixelRatio) }
+    const raster = await page.locator('.dshwv-bubble-raster').evaluate(async el => {
+      const paths = [...el.querySelectorAll('path')]
+      const svg = el.cloneNode(true)
+      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 87
+      svg.setAttribute('width', canvas.width); svg.setAttribute('height', canvas.height)
+      const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }))
+      let colors, alpha
+      try {
+        const image = new Image(); image.src = url; await image.decode()
+        const context = canvas.getContext('2d'); context.drawImage(image, 0, 0)
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+        colors = new Set(); alpha = new Set()
+        for (let i = 0; i < pixels.length; i += 4) {
+          alpha.add(pixels[i + 3])
+          if (pixels[i + 3]) colors.add([...pixels.slice(i, i + 3)].join(','))
+        }
+      } finally { URL.revokeObjectURL(url) }
+      return { source: [el.dataset.sourceWidth, el.dataset.sourceHeight], tag: el.tagName,
+        fills: paths.map(p => p.getAttribute('fill')).sort(), colors: [...colors].sort(), alpha: [...alpha].sort((a, b) => a - b),
+        orthogonal: paths.every(p => /^(?:[MHVZ\s]|\d)+$/.test(p.getAttribute('d'))),
+        pointer: paths.every(p => getComputedStyle(p).pointerEvents === 'none'),
+        sourceOpacity: getComputedStyle(el.parentNode.querySelector('[data-pixel-source]')).opacity,
+        embedded: el.querySelectorAll('image,canvas').length, crisp: el.getAttribute('shape-rendering') }
     })
     assert.deepEqual(raster.source, ['128', '87'])
-    assert.equal(raster.smooth, false)
-    assert.equal(raster.opaque, true)
-    assert.ok(Math.abs(raster.width - raster.expected) <= 1)
+    assert.equal(raster.tag, 'svg')
+    assert.equal(raster.crisp, 'crispEdges')
+    assert.deepEqual(raster.fills, ['#203170', '#ffffff'])
+    assert.deepEqual(raster.colors, ['255,255,255', '32,49,112'])
+    assert.deepEqual(raster.alpha, [0, 255])
+    assert.equal(raster.orthogonal, true)
+    assert.equal(raster.pointer, true)
+    assert.equal(raster.sourceOpacity, '0')
+    assert.equal(raster.embedded, 0)
+    assert.deepEqual(await displayedFrameColors(page), ['251,0,249,255', '255,255,255,255', '32,49,112,255'])
     await page.getByLabel('对话框风格', { exact: true }).selectOption('classic')
     assert.equal(await page.locator('.dshwv-shapewrap ellipse').count(), 2)
     await page.reload()
@@ -154,7 +203,7 @@ try {
   await action('custom frame geometry stays intact and frame-library images can be pixelated', async () => {
     const original = (await (await page.request.get(app.url + '/dsh-whale/bubble.json')).json()).config || { v: 1, items: [{ kind: 'normal' }], lib: [] }
     const custom = { id: 'frame_fixture', name: '测试自定义框', safe: { x: 130, y: 80, w: 646, h: 330 },
-      slots: { big: { kind: 'svg', svgPreset: 'roundrect' }, small1: { on: false }, small2: { on: false } } }
+      slots: { big: { kind: 'svg', svgPreset: 'roundrect', paint: { line: '#bd2848', bg: '#f5e4e6' } }, small1: { on: false }, small2: { on: false } } }
     const config = { ...original, items: original.items.map(item => ({ ...item, frameId: custom.id })),
       frames: [custom], defaultFrameId: custom.id }
     try {
@@ -164,6 +213,11 @@ try {
       await click()
       await page.waitForFunction(() => document.querySelector('.dshwv-shapewrap .dshwv-bshape')?.getAttribute('d')?.includes('A 65 65'))
       assert.equal(await page.locator('.dshwv-shapewrap [data-pixel-frame]').count(), 0)
+      await openMenu()
+      await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
+      await page.waitForSelector('.dshwv-raster-ready')
+      assert.deepEqual(await page.locator('.dshwv-bubble-raster path').evaluateAll(paths => paths.map(p => p.getAttribute('fill')).sort()), ['#bd2848', '#f5e4e6'])
+      await page.getByLabel('对话框风格', { exact: true }).selectOption('pixel')
       custom.slots.big = { kind: 'image', imgId: 'bimg_petpet', svgPreset: 'roundrect' }
       await page.request.put(app.url + '/dsh-whale/bubble.json', { data: { ...config, frames: [custom] } })
       await page.reload()
@@ -173,7 +227,13 @@ try {
       await openMenu()
       await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
       await page.waitForSelector('.dshwv-raster-ready')
-      assert.equal(await page.locator('.dshwv-bubble-raster').evaluate(el => el.getContext('2d').getImageData(0, 0, el.width, el.height).data.some((value, i) => i % 4 === 3 && value > 0)), true)
+      const imageVector = await page.locator('.dshwv-bubble-raster').evaluate(el => ({
+        paths: el.querySelectorAll('path').length, embedded: el.querySelectorAll('image').length,
+        safe: [...el.querySelectorAll('path')].every(p => /^#[\da-f]{6}$/.test(p.getAttribute('fill')) && /^(?:[MHVZ\s]|\d)+$/.test(p.getAttribute('d'))),
+      }))
+      assert.ok(imageVector.paths > 0 && imageVector.paths <= 32)
+      assert.equal(imageVector.embedded, 0)
+      assert.equal(imageVector.safe, true)
       const center = await page.locator('.dshwv-shapewrap .dshwv-bshape').first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
       await page.mouse.click(10, 10)
       await page.mouse.click(center.x, center.y)
@@ -278,6 +338,9 @@ try {
       assert.equal(dimensions.ratio, 2)
       assert.ok(Math.abs(dimensions.backing - dimensions.display * 2) <= 1)
       await retina.locator('.dshwv-pixel').screenshot({ path: output + 'pixel-detail-2x.png' })
+      await retina.locator('.dshwv-dialogue-style').selectOption('raster', { force: true })
+      await retina.waitForSelector('.dshwv-raster-ready')
+      assert.deepEqual(await displayedFrameColors(retina), ['251,0,249,255', '255,255,255,255', '32,49,112,255'])
     } finally { await context.close() }
   })
   assert.deepEqual(errors, [])

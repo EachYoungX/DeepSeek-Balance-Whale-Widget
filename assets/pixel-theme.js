@@ -34,6 +34,116 @@
       ' V ' + (y + u) + ' H ' + (x + 2 * u) + ' Z'
   }
 
+  function quantizePixels(data, palette) {
+    var cells = new Int16Array(data.length / 4)
+    cells.fill(-1)
+    for (var i = 0; i < cells.length; i++) {
+      var offset = i * 4, alpha = data[offset + 3]
+      if (alpha < 8) continue
+      var best = -1, distance = Infinity
+      palette.forEach(function (color, index) {
+        var dr = data[offset] - color[0], dg = data[offset + 1] - color[1], db = data[offset + 2] - color[2]
+        var da = alpha - color[3]
+        var score = dr * dr + dg * dg + db * db + da * da * 0.05
+        if (score < distance) { distance = score; best = index }
+      })
+      // Match unpremultiplied RGB first: a translucent white edge must stay white.
+      // Then snap coverage to the authored opacity, leaving faint outer pixels clear.
+      if (best >= 0 && alpha >= palette[best][3] / 2) cells[i] = best
+    }
+    return cells
+  }
+
+  function pixelPaths(cells, width, height, palette) {
+    var stride = width + 1, edges = palette.map(function () { return new Map() })
+    function edge(color, x, y, direction) {
+      var vertex = y * stride + x, graph = edges[color]
+      graph.set(vertex, (graph.get(vertex) || 0) | (1 << direction))
+    }
+    for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) {
+      var i = y * width + x, color = cells[i]
+      if (color < 0) continue
+      if (y === 0 || cells[i - width] !== color) edge(color, x, y, 0)
+      if (x === width - 1 || cells[i + 1] !== color) edge(color, x + 1, y, 1)
+      if (y === height - 1 || cells[i + width] !== color) edge(color, x + 1, y + 1, 2)
+      if (x === 0 || cells[i - 1] !== color) edge(color, x, y + 1, 3)
+    }
+    var paths = [], moves = [1, stride, -1, -stride]
+    edges.forEach(function (graph, index) {
+      var contours = []
+      while (graph.size) {
+        var start = graph.keys().next().value, vertex = start, last = -1, commands = []
+        var mask = graph.get(start), direction = [0, 1, 2, 3].find(function (d) { return mask & (1 << d) })
+        do {
+          mask = graph.get(vertex) & ~(1 << direction)
+          if (mask) graph.set(vertex, mask); else graph.delete(vertex)
+          vertex += moves[direction]
+          var command = (direction % 2 ? 'V ' + Math.floor(vertex / stride) : 'H ' + (vertex % stride))
+          if (direction === last) commands[commands.length - 1] = command; else commands.push(command)
+          last = direction
+          if (vertex === start) break
+          mask = graph.get(vertex)
+          // Keep diagonally touching pixels as separate contours by turning right first.
+          direction = [(last + 1) % 4, last, (last + 3) % 4, (last + 2) % 4].find(function (d) { return mask & (1 << d) })
+        } while (direction !== undefined)
+        contours.push('M ' + (start % stride) + ' ' + Math.floor(start / stride) + ' ' + commands.join(' ') + ' Z')
+      }
+      if (contours.length) paths.push({ color: palette[index], d: contours.join(' ') })
+    })
+    return paths
+  }
+
+  function framePalette(svg) {
+    var context = document.createElement('canvas').getContext('2d'), palette = []
+    function inherited(node, name, fallback) {
+      for (; node && node.nodeType === 1; node = node.parentNode) if (node.hasAttribute(name)) return node.getAttribute(name)
+      return fallback
+    }
+    svg.querySelectorAll('path,ellipse,circle,rect,polygon,polyline').forEach(function (node) {
+      var opacity = 1
+      for (var parent = node; parent && parent.nodeType === 1; parent = parent.parentNode) {
+        if (parent.hasAttribute('opacity')) opacity *= Number(parent.getAttribute('opacity'))
+      }
+      ;['fill', 'stroke'].forEach(function (name) {
+        var paint = inherited(node, name, name === 'fill' ? '#000000' : 'none')
+        if (paint === 'none' || paint === 'transparent') return
+        context.fillStyle = '#000000'; context.fillStyle = paint
+        var resolved = context.fillStyle, color
+        if (/^#[0-9a-f]{6}$/i.test(resolved)) {
+          color = [parseInt(resolved.slice(1, 3), 16), parseInt(resolved.slice(3, 5), 16), parseInt(resolved.slice(5, 7), 16), 255]
+        } else {
+          var parts = resolved.match(/[\d.]+/g)
+          if (!parts || parts.length < 3) return
+          color = [Number(parts[0]), Number(parts[1]), Number(parts[2]), parts.length > 3 ? Number(parts[3]) * 255 : 255]
+        }
+        color[3] = Math.round(color[3] * opacity * Number(inherited(node, name + '-opacity', '1')))
+        if (color[3] >= 8 && !palette.some(function (p) { return p.join(',') === color.join(',') })) palette.push(color)
+      })
+    })
+    return palette
+  }
+
+  function imagePalette(data, palette) {
+    var histogram = new Map(), count = 0
+    for (var i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 128) continue
+      var color = [data[i], data[i + 1], data[i + 2], 255]
+      if (Math.min(color[0], color[1], color[2]) >= 240) color = [255, 255, 255, 255]
+      var key = color.join(','); count++
+      histogram.set(key, (histogram.get(key) || 0) + 1)
+    }
+    // Image frames have no declared palette. Retain dominant tones, merging similar
+    // colors and rare interpolation fringes into a bounded, flat-color palette.
+    var candidates = Array.from(histogram).sort(function (a, b) { return b[1] - a[1] })
+    var minimum = Math.max(2, Math.ceil(count * 0.003))
+    candidates.forEach(function (entry) {
+      if (palette.length >= 32 || (palette.length && entry[1] < minimum)) return
+      var color = entry[0].split(',').map(Number)
+      if (!palette.some(function (p) { return (p[0] - color[0]) ** 2 + (p[1] - color[1]) ** 2 + (p[2] - color[2]) ** 2 < 48 ** 2 })) palette.push(color)
+    })
+    return palette
+  }
+
   function styles() {
     if (!scope.document || document.querySelector('[data-dshw-pixel-theme]')) return
     var style = document.createElement('style')
@@ -44,9 +154,10 @@
       '.dshwv-root[data-pixel-dialogue="raster"] .dshwv-text,.dshwv-root[data-pixel-dialogue="raster"] .dshwv-text *{' +
       'font-family:DshWhalePixel,"Microsoft YaHei",sans-serif!important;font-synthesis:none;border-radius:0!important;text-shadow:none!important}',
       '.dshwv-root:not([data-pixel-dialogue="classic"]) [data-pixel-font]{font-size:var(--dshw-pixel-font-size)!important;letter-spacing:0!important}',
-      '.dshwv-bubble-raster{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;image-rendering:pixelated;opacity:0;transition:opacity .2s ease}',
+      '.dshwv-bubble-raster{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .2s ease}',
+      '.dshwv-pop .dshwv-bubble-raster,.dshwv-pop .dshwv-bubble-raster *{pointer-events:none!important}',
       '.dshwv-pop-open.dshwv-raster-ready .dshwv-bubble-raster{opacity:1;transition-delay:.26s}',
-      '.dshwv-pop.dshwv-raster-ready .dshwv-shapewrap>svg{opacity:0!important}',
+      '.dshwv-pop.dshwv-raster-ready .dshwv-shapewrap>svg[data-pixel-source]{opacity:0!important}',
       '.dshwv-dialogue-row{display:flex;align-items:center;gap:8px;margin:6px 0;color:#213170;font-size:12px}',
       '.dshwv-dialogue-style{flex:1;min-width:0;border:1px solid #b9cced;border-radius:4px;padding:4px;background:#fff;color:#213170}',
     ].join('\n')
@@ -56,11 +167,14 @@
   function mount(options) {
     var root = options.root, shape = options.shape, bubble = options.bubble, text = options.text
     var mode = 'pixel', source = null, builtin = true, disposed = false, revision = 0, pending = null
-    var low = null, raf = null, svgUrl = null
+    var raf = null, svgUrl = null
     try { var saved = localStorage.getItem('dshw-pixel-dialogue'); if (MODES.indexOf(saved) >= 0) mode = saved } catch (err) {}
-    var canvas = document.createElement('canvas')
-    canvas.className = 'dshwv-bubble-raster'
-    canvas.setAttribute('aria-hidden', 'true')
+    var vector = document.createElementNS(NS, 'svg')
+    vector.setAttribute('class', 'dshwv-bubble-raster')
+    vector.setAttribute('aria-hidden', 'true')
+    vector.setAttribute('viewBox', '0 0 128 87')
+    vector.setAttribute('preserveAspectRatio', 'none')
+    vector.setAttribute('shape-rendering', 'crispEdges')
     var row = document.createElement('label')
     row.className = 'dshwv-dialogue-row'
     row.appendChild(document.createTextNode('对话框'))
@@ -105,19 +219,18 @@
         node.replaceWith(path)
       })
     }
-    function paintRaster() {
-      if (!low || disposed || mode !== 'raster') return
-      var layout = getComputedStyle(shape), ratio = scope.devicePixelRatio || 1
-      var cssWidth = parseFloat(layout.width), cssHeight = parseFloat(layout.height)
-      if (!(cssWidth > 0 && cssHeight > 0)) return
-      // The press animation scales the parent temporarily; use its steady layout size.
-      var width = Math.max(1, Math.round(cssWidth * ratio)), height = Math.max(1, Math.round(cssHeight * ratio))
-      canvas.width = width; canvas.height = height
-      var context = canvas.getContext('2d')
-      context.imageSmoothingEnabled = false
-      context.drawImage(low, 0, 0, width, height)
-      canvas.dataset.sourceWidth = String(low.width)
-      canvas.dataset.sourceHeight = String(low.height)
+    function paintVector(data, width, height, palette) {
+      vector.replaceChildren()
+      pixelPaths(quantizePixels(data, palette), width, height, palette).forEach(function (entry) {
+        var path = document.createElementNS(NS, 'path')
+        path.setAttribute('fill', '#' + entry.color.slice(0, 3).map(function (c) { return c.toString(16).padStart(2, '0') }).join(''))
+        if (entry.color[3] < 255) path.setAttribute('fill-opacity', String(entry.color[3] / 255))
+        path.setAttribute('fill-rule', 'evenodd')
+        path.setAttribute('d', entry.d)
+        vector.appendChild(path)
+      })
+      vector.dataset.sourceWidth = String(width); vector.dataset.sourceHeight = String(height)
+      shape.appendChild(vector)
       bubble.classList.add('dshwv-raster-ready')
     }
     function dataUrl(blob) {
@@ -127,6 +240,7 @@
     }
     async function rasterize(svg, ticket, signal) {
       try {
+        var palette = framePalette(svg), hasImages = !!svg.querySelector('image')
         // SVG image decoding is self-contained: embed only the widget's own image route.
         await Promise.all(Array.from(svg.querySelectorAll('image'), async function (image) {
           var href = image.getAttribute('href') || image.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || ''
@@ -147,15 +261,13 @@
           })
         } finally { URL.revokeObjectURL(url); if (svgUrl === url) svgUrl = null }
         if (disposed || ticket !== revision) return
-        low = document.createElement('canvas'); low.width = 128; low.height = 87
+        var low = document.createElement('canvas'); low.width = 128; low.height = 87
         var ctx = low.getContext('2d', { willReadFrequently: true })
         ctx.imageSmoothingEnabled = false
         ctx.drawImage(image, 0, 0, low.width, low.height)
-        // Snap the silhouette's partially transparent edge before nearest-neighbour enlargement.
         var pixels = ctx.getImageData(0, 0, low.width, low.height)
-        for (var i = 3; i < pixels.data.length; i += 4) pixels.data[i] = pixels.data[i] >= 96 ? 255 : 0
-        ctx.putImageData(pixels, 0, 0)
-        paintRaster()
+        if (hasImages) palette = imagePalette(pixels.data, palette)
+        paintVector(pixels.data, low.width, low.height, palette)
       } catch (err) {
         if (ticket === revision && !disposed && err.name !== 'AbortError') console.warn('[dsh-whale-pixel] Frame pixelation unavailable:', err.message)
       }
@@ -163,18 +275,19 @@
     function render() {
       revision++
       if (pending) pending.abort()
-      pending = null; low = null
+      pending = null
       if (svgUrl) { URL.revokeObjectURL(svgUrl); svgUrl = null }
       bubble.classList.remove('dshwv-raster-ready')
-      canvas.remove()
+      vector.remove()
       root.dataset.pixelDialogue = mode
       var current = shape.querySelector('svg')
       if (source) {
         var svg = source.cloneNode(true)
+        svg.setAttribute('data-pixel-source', '')
         if (current) current.replaceWith(svg); else shape.prepend(svg)
         if (mode === 'pixel' && builtin) pixelShape(svg)
         if (mode === 'raster') {
-          shape.appendChild(canvas); pending = new AbortController()
+          pending = new AbortController()
           rasterize(source.cloneNode(true), revision, pending.signal)
         }
       }
@@ -192,7 +305,7 @@
       try { localStorage.setItem('dshw-pixel-dialogue', mode) } catch (err) {}
       render()
     }
-    function resize() { paintRaster(); scheduleFonts() }
+    function resize() { scheduleFonts() }
     function dispose() {
       if (disposed) return
       disposed = true; revision++; observer.disconnect()
@@ -201,7 +314,7 @@
       if (svgUrl) URL.revokeObjectURL(svgUrl)
       if (raf !== null) cancelAnimationFrame(raf)
       select.removeEventListener('change', change); scope.removeEventListener('resize', resize); scope.removeEventListener('pagehide', pagehide)
-      row.remove(); canvas.remove(); source = null; low = null
+      row.remove(); vector.remove(); source = null
     }
     function pagehide(event) { if (!event.persisted) dispose() }
     var resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : null
@@ -211,6 +324,6 @@
     fontReady().then(scheduleFonts).catch(function (err) { console.warn('[dsh-whale-pixel] Pixel font unavailable:', err.message) })
     return { frameChanged: frameChanged, dispose: dispose }
   }
-  scope.DshWhalePixelTheme = Object.freeze({ mount: mount, fontSize: fontSize, stepRect: stepRect, fontReady: fontReady })
+  scope.DshWhalePixelTheme = Object.freeze({ mount: mount, fontSize: fontSize, stepRect: stepRect, fontReady: fontReady, quantizePixels: quantizePixels, pixelPaths: pixelPaths })
   styles()
 })(typeof globalThis === 'object' ? globalThis : window)
