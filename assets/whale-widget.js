@@ -12315,6 +12315,7 @@ function bubbleFontEditRow(getVal, setVal) {
   // 字体选择:系统字体下拉(仅可选项,去掉自定义字体名),列表限高滚动
   var FONT_OPTIONS = [
     ['', '默认字体'],
+    ['DshWhalePixel,sans-serif', '缝合像素（内置）'],
     ['"Microsoft YaHei",sans-serif', '微软雅黑'],
     ['"PingFang SC","Microsoft YaHei",sans-serif', '苹方/雅黑'],
     ['DengXian,"Microsoft YaHei",sans-serif', '等线'],
@@ -13943,11 +13944,17 @@ try {
     selectDefault: function () { applyRole('default', '小鲸鱼', IMG_URL) }
   })
 } catch (err) { console.warn('[dsh-whale-pixel]', err) }
+var pixelDialogue = null
 body.appendChild(bubbleBox)
 root.appendChild(body)
 root.appendChild(menuBtn)
 dshwBodyAppend(root)
 dshwBodyAppend(menuBox)
+try {
+  if (window.DshWhalePixelTheme) pixelDialogue = window.DshWhalePixelTheme.mount({
+    root: root, bubble: bubbleBox, shape: bubbleShapeBox, text: textBox, menu: menuBox
+  })
+} catch (err) { console.warn('[dsh-whale-pixel]', err) }
 
 // ===== PR #105 后半：DOM 守护（SPA 切路由 / 别的插件替换 body 子树时把节点摘掉）=====
 // 背景：DSH 是 SPA，切到会话列表 / 设置 / 插件市场再回来、或其它客户端插件整体替换
@@ -14798,6 +14805,7 @@ function applyBubbleFrame(frame, override) {
       if (textBox) textBox.style.color = (frame && frame.textColor) ? String(frame.textColor) : ''
     } catch (err) {}
     applyBubbleTextFrame(frame)
+    if (pixelDialogue) pixelDialogue.frameChanged(frame)
     return true
   } catch (err) { return false }
 }

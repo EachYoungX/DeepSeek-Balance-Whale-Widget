@@ -1366,5 +1366,38 @@
         "sha256": "896d67bb0c0c4d24f35fdbca9aa5005dfd5e08a1783ba9de2b39b00add3406e3"
       }
     ]
+  },
+  "pixelFont": {
+    "repository": "TakWolf/fusion-pixel-font",
+    "version": "2026.09.01",
+    "archive": "https://github.com/TakWolf/fusion-pixel-font/releases/download/2026.09.01/fusion-pixel-font-12px-proportional-otf.woff2-v2026.09.01.zip",
+    "archiveSha256": "96a105bf90600c9f589629b7e9cf61ab4d498f1a9af33b6ac6f517d217a3393c",
+    "files": [
+      {
+        "source": "OFL.txt",
+        "target": "assets/fonts/fusion-pixel/OFL.txt",
+        "sha256": "bc518cf64b8032c07690f33cc270c35c179255a6ac8efa7c165ebae7e8f76a63"
+      },
+      {
+        "source": "LICENSES/ark-pixel/OFL.txt",
+        "target": "assets/fonts/fusion-pixel/LICENSES/ark-pixel/OFL.txt",
+        "sha256": "3ab41567e68e3988ba1ef16dd2644eca95ca5648ea12e7d46e6287fc0bbe5aee"
+      },
+      {
+        "source": "LICENSES/cubic-11/OFL.txt",
+        "target": "assets/fonts/fusion-pixel/LICENSES/cubic-11/OFL.txt",
+        "sha256": "2b6e5938e5cffa0b9e183bd05f8c363e174e7ebed1a0556e2855fd1707fa2188"
+      },
+      {
+        "source": "LICENSES/galmuri/LICENSE.txt",
+        "target": "assets/fonts/fusion-pixel/LICENSES/galmuri/LICENSE.txt",
+        "sha256": "86a3ee9495f942f0243f18c103da9faca27adb88142613edb8bb852e56c892c1"
+      },
+      {
+        "source": "fusion-pixel-12px-proportional-zh_hans.otf.woff2",
+        "target": "assets/fonts/fusion-pixel/fusion-pixel-12px-proportional-zh_hans.otf.woff2",
+        "sha256": "de421b3da7b20e045f0712ee838f30c225f4610b348efb37e2b31baa98860cbf"
+      }
+    ]
   }
 }

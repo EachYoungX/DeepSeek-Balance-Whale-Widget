@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process'
 
 const commands = [
   ['scripts/sync-whale-girl.mjs', '--check'],
-  ...['lib/index.js', 'lib/pixel-animation.mjs', 'assets/whale-widget.js', 'assets/pixel-core.js', 'assets/pixel-raster.js', 'assets/pixel-adapter.js', 'scripts/export-patches.mjs', 'scripts/build-release.mjs']
+  ...['lib/index.js', 'lib/pixel-animation.mjs', 'assets/whale-widget.js', 'assets/pixel-core.js', 'assets/pixel-raster.js', 'assets/pixel-adapter.js', 'assets/pixel-theme.js', 'scripts/export-patches.mjs', 'scripts/build-release.mjs']
     .map(file => ['--check', file]),
-  ['--test', 'test/pixel-core.test.mjs', 'test/pixel-activity.test.mjs'],
+  ['--test', 'test/pixel-core.test.mjs', 'test/pixel-activity.test.mjs', 'test/pixel-theme.test.mjs'],
   ['tools/z-layer-audit.mjs', 'assets/whale-widget.js'],
   ['tools/ci-audit.mjs', '--no-pack'],
   ['tools/ci-audit-selftest.mjs'],

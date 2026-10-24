@@ -33,7 +33,7 @@ try {
     cwd: stage, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], windowsHide: true,
   }))
   const files = new Set(packed.files.map(file => file.path))
-  for (const required of ['README.upstream.md', 'assets/pixel-core.js', 'assets/pixel-raster.js', 'assets/pixel-adapter.js', ...lock.whaleGirl.files.map(file => file.target)]) {
+  for (const required of ['README.upstream.md', 'assets/pixel-core.js', 'assets/pixel-raster.js', 'assets/pixel-adapter.js', 'assets/pixel-theme.js', ...lock.whaleGirl.files.map(file => file.target), ...lock.pixelFont.files.map(file => file.target)]) {
     assert.ok(files.has(required), 'Missing release resource: ' + required)
   }
   assert.ok(![...files].some(file => /^assets\/DSniang/.test(file)), 'The removed static character must stay out of the package')

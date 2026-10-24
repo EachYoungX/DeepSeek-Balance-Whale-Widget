@@ -18,7 +18,12 @@
 - 工作、输出、等待确认、压缩上下文及子代理状态驱动动画；支持按压、拖拽、入睡和唤醒。
 - 默认角色直接播放像素动画，启动加载期间保持透明；资源加载失败可从菜单重试。
 - 小黄鸭音效默认音量与“恢复默认”均为 20%；已保存的个人音量继续优先。
+- 对话框默认使用阶梯像素边框与内置中文像素字体；菜单可切换“原框像素化”或“经典样式”。
 - 自定义上传的角色、泡泡、账本与其它原有功能继续使用。完整行为见 [像素动画说明](docs/PIXEL.md)。
+
+对话框效果：左侧为默认像素边框，右侧为原框缩小后最近邻放大的效果。
+
+<img src="assets/previews/dialogue-pixel.png" width="343" alt="像素边框与中文像素字体"> <img src="assets/previews/dialogue-raster.png" width="343" alt="原框缩小后最近邻放大与中文像素字体">
 
 ## 下载与安装
 
@@ -26,8 +31,8 @@
 
 | 附件示例 | 用途 |
 |---|---|
-| `dsh-whale-widget-0.4.2-pixel.3.tgz` | 标准 DSH 插件安装包，交给包管理器安装 |
-| `dsh-whale-pixel-0.4.2-pixel.3.zip` | 完整版本目录，适合 Desktop 本地 `link:` 安装或开发 |
+| `dsh-whale-widget-0.4.2-pixel.4.tgz` | 标准 DSH 插件安装包，交给包管理器安装 |
+| `dsh-whale-pixel-0.4.2-pixel.4.zip` | 完整版本目录，适合 Desktop 本地 `link:` 安装或开发 |
 | `SHA256SUMS.txt` | 对应附件的 SHA-256 校验值 |
 
 **已经装了原余额挂件，也可以切换。** 本分支沿用包名和插件标识 `dsh-whale-widget`，用一个定制版本接替原包。通过当前 profile 的插件管理器移除旧包，再安装本分支；保留 `.dsh` 中的用户数据。具体步骤与回退方法见 [已有用户迁移](docs/INSTALL.md#已有原余额挂件)。
@@ -47,7 +52,7 @@ link:D:/DSHPlugins/dsh-whale-pixel
 在退出使用该 profile 的 DSH 后，用下载的安装包替换原包：
 
 ```powershell
-dsh plugin --profile web add "D:/Downloads/dsh-whale-widget-0.4.2-pixel.3.tgz"
+dsh plugin --profile web add "D:/Downloads/dsh-whale-widget-0.4.2-pixel.4.tgz"
 ```
 
 本地开发可在源码目录运行 `dsh plugin --profile web add link:.`。Desktop 使用上面的专用步骤。
@@ -79,4 +84,4 @@ npm run patches
 npm run release:bundle
 ```
 
-公开使用文档在 `docs/`，内部研究记录在忽略的 `internal_docs/`。全部 **28 个** `/dsh-whale/*` 路由沿用宿主信任校验。发行包的准备、验证与手动发布见 [发行说明](docs/RELEASING.md)。
+公开使用文档在 `docs/`，内部研究记录在忽略的 `internal_docs/`。全部 **29 个** `/dsh-whale/*` 路由沿用宿主信任校验。发行包的准备、验证与手动发布见 [发行说明](docs/RELEASING.md)。

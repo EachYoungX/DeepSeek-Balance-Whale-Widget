@@ -8,4 +8,6 @@
 
 新增播放器、状态机、适配器与维护脚本采用 MIT 许可。贡献者与 AI 参与范围见 `docs/CONTRIBUTORS.md`。
 
+`0.4.2-pixel.4` 内置 [TakWolf/Fusion Pixel](https://github.com/TakWolf/fusion-pixel-font) `2026.09.01` 的 12px 比例宽度简体中文 WOFF2，字体文件保持原样，使用 SIL Open Font License 1.1。完整版权、许可与组成来源声明随包保留在 `assets/fonts/fusion-pixel/OFL.txt` 和 `LICENSES/`，固定归档与文件 SHA-256 见 `upstream.lock.json` 的 `pixelFont` 字段。
+
 自 `0.4.2-pixel.2` 起，同时随包保留同一 dsh-TUI 提交下的 `assets/whaleGirl/img/` 原始 PNG 帧与 `timings.json`，用于保留图像细节和透明边缘。每个文件的校验值均写入锁文件，继续沿用上面的素材来源和许可范围说明。

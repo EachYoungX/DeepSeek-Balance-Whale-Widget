@@ -1,9 +1,9 @@
 {
   "name": "dsh-whale-widget",
-  "version": "0.4.2-pixel.3",
+  "version": "0.4.2-pixel.4",
   "private": true,
   "scripts": {
-    "test": "node --test test/pixel-core.test.mjs test/pixel-activity.test.mjs",
+    "test": "node --test test/pixel-core.test.mjs test/pixel-activity.test.mjs test/pixel-theme.test.mjs",
     "check": "node scripts/check.mjs",
     "test:browser": "node test/pixel-browser.mjs",
     "preview": "node test/widget-server.mjs",

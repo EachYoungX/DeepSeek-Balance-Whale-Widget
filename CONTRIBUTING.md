@@ -34,6 +34,8 @@
 
 原始 PNG 播放与解码缓存位于 `assets/pixel-raster.js`，源图和时序索引位于 `assets/whaleGirl/img/`。新增素材须登记 SHA-256，并保持 PNG 与字符格动画的帧数、`dur` 一致。
 
+像素对话框、原框最近邻放大与字体加载位于 `assets/pixel-theme.js`。内置字体和原始许可位于 `assets/fonts/fusion-pixel/`，文件完整性由 `test/pixel-theme.test.mjs` 校验。主题切换仅影响真实挂件的呈现，原框配置保持可编辑。
+
 下面是你打开仓库第一时间看到的东西。行数按仓库内 LF 内容统计（git 里的真实内容，不是 Windows 工作区的 CRLF），口径与维护者的自检脚本一致。
 
 ```

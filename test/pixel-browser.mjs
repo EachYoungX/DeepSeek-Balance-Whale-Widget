@@ -103,6 +103,89 @@ try {
     assert.equal((await fresh.json()).vol, 0.35)
     await page.request.put(app.url + '/dsh-whale/size.json', { data: { scale: 1.5, vol: 0.2 } })
   })
+  await action('dialogue uses the local CJK pixel font and crisp SVG while amounts stay live text', async () => {
+    await click()
+    await page.waitForSelector('.dshwv-pop-open')
+    const font = await page.request.get(app.url + '/dsh-whale/pixel-theme/font.woff2')
+    assert.equal(font.status(), 200)
+    assert.equal(font.headers()['content-type'], 'font/woff2')
+    assert.equal((await font.body()).subarray(0, 4).toString(), 'wOF2')
+    assert.equal((await page.request.get(app.url + '/dsh-whale/pixel-theme/missing.woff2')).status(), 404)
+    const face = await page.evaluate(async () => {
+      await window.DshWhalePixelTheme.fontReady()
+      const loaded = await document.fonts.load('12px DshWhalePixel', '鲸娘余额 ¥0123456789')
+      const row = document.querySelector('.dshwv-text .dshwv-trow')
+      return { loaded: loaded.length, family: getComputedStyle(row).fontFamily, text: document.querySelector('.dshwv-text').textContent }
+    })
+    assert.equal(face.loaded, 1)
+    assert.match(face.family, /DshWhalePixel/)
+    assert.match(face.text, /100\.00/)
+    assert.equal(await page.locator('.dshwv-shapewrap svg[data-pixel-frame]').count(), 1)
+    assert.equal(await page.locator('.dshwv-shapewrap ellipse').count(), 0)
+    const before = await page.locator('.dshwv-text').textContent()
+    await page.locator('.dshwv-shapewrap .dshwv-bshape').click()
+    await page.waitForFunction(before => !document.querySelector('.dshwv-pop').classList.contains('dshwv-pop-open') || document.querySelector('.dshwv-text').textContent !== before, before)
+    await page.mouse.move(10, 10)
+  })
+  await action('frame downsampling uses nearest-neighbour rendering; classic and pixel choices persist', async () => {
+    await openMenu()
+    await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
+    await page.waitForSelector('.dshwv-raster-ready')
+    const raster = await page.locator('.dshwv-bubble-raster').evaluate(el => {
+      const context = el.getContext('2d'), pixels = context.getImageData(0, 0, el.width, el.height).data
+      return { source: [el.dataset.sourceWidth, el.dataset.sourceHeight], smooth: context.imageSmoothingEnabled,
+        opaque: pixels.some((value, i) => i % 4 === 3 && value > 0), width: el.width, expected: Math.round(el.getBoundingClientRect().width * devicePixelRatio) }
+    })
+    assert.deepEqual(raster.source, ['128', '87'])
+    assert.equal(raster.smooth, false)
+    assert.equal(raster.opaque, true)
+    assert.ok(Math.abs(raster.width - raster.expected) <= 1)
+    await page.getByLabel('对话框风格', { exact: true }).selectOption('classic')
+    assert.equal(await page.locator('.dshwv-shapewrap ellipse').count(), 2)
+    await page.reload()
+    await page.waitForFunction(() => document.querySelector('.dshwv-root')?.dataset.pixelDialogue === 'classic')
+    assert.equal(await page.locator('[data-pixel-font]').count(), 0)
+    await openMenu()
+    await page.getByLabel('对话框风格', { exact: true }).selectOption('pixel')
+    await page.reload()
+    await page.waitForFunction(() => document.querySelector('.dshwv-root')?.dataset.pixelDialogue === 'pixel')
+    await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+  })
+  await action('custom frame geometry stays intact and frame-library images can be pixelated', async () => {
+    const original = (await (await page.request.get(app.url + '/dsh-whale/bubble.json')).json()).config || { v: 1, items: [{ kind: 'normal' }], lib: [] }
+    const custom = { id: 'frame_fixture', name: '测试自定义框', safe: { x: 130, y: 80, w: 646, h: 330 },
+      slots: { big: { kind: 'svg', svgPreset: 'roundrect' }, small1: { on: false }, small2: { on: false } } }
+    const config = { ...original, items: original.items.map(item => ({ ...item, frameId: custom.id })),
+      frames: [custom], defaultFrameId: custom.id }
+    try {
+      assert.equal((await (await page.request.put(app.url + '/dsh-whale/bubble.json', { data: config })).json()).ok, true)
+      await page.reload()
+      await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+      await click()
+      await page.waitForFunction(() => document.querySelector('.dshwv-shapewrap .dshwv-bshape')?.getAttribute('d')?.includes('A 65 65'))
+      assert.equal(await page.locator('.dshwv-shapewrap [data-pixel-frame]').count(), 0)
+      custom.slots.big = { kind: 'image', imgId: 'bimg_petpet', svgPreset: 'roundrect' }
+      await page.request.put(app.url + '/dsh-whale/bubble.json', { data: { ...config, frames: [custom] } })
+      await page.reload()
+      await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+      await click()
+      await page.waitForSelector('.dshwv-shapewrap image')
+      await openMenu()
+      await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
+      await page.waitForSelector('.dshwv-raster-ready')
+      assert.equal(await page.locator('.dshwv-bubble-raster').evaluate(el => el.getContext('2d').getImageData(0, 0, el.width, el.height).data.some((value, i) => i % 4 === 3 && value > 0)), true)
+      const center = await page.locator('.dshwv-shapewrap .dshwv-bshape').first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+      await page.mouse.click(10, 10)
+      await page.mouse.click(center.x, center.y)
+      await page.waitForFunction(() => !document.querySelector('.dshwv-pop').classList.contains('dshwv-pop-open'))
+      await openMenu()
+      await page.getByLabel('对话框风格', { exact: true }).selectOption('pixel')
+    } finally {
+      await page.request.put(app.url + '/dsh-whale/bubble.json', { data: original })
+      await page.reload()
+      await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+    }
+  })
   await page.screenshot({ path: output + 'pixel-browser.png', fullPage: true })
   await page.locator('.dshwv-pixel').screenshot({ path: output + 'pixel-detail.png' })
   await action('directional click interrupts hover and resumes after one-shot', async () => {

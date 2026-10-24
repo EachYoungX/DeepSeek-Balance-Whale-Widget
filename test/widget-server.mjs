@@ -51,7 +51,7 @@ export async function startWidgetServer(port = 0) {
       if (url.pathname === '/dsh-whale/balance.json') {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(fixture.balanceError ? { ok: false, error: '模拟网络错误' } : {
-          ok: true, totalBalance: fixture.balance, currency: 'CNY', todayUsage: 1.25, todayUsageCurrency: 'CNY', version: '0.4.2-pixel.3', isPeak: false,
+          ok: true, totalBalance: fixture.balance, currency: 'CNY', todayUsage: 1.25, todayUsageCurrency: 'CNY', version: '0.4.2-pixel.4', isPeak: false,
         })); return
       }
       if (url.pathname === '/dsh-whale/roles.json' && req.method === 'GET') {

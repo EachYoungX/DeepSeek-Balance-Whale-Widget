@@ -45,7 +45,7 @@ link:D:/DSHPlugins/dsh-whale-pixel
 
 ```powershell
 dsh plugin --profile web remove dsh-whale-widget
-dsh plugin --profile web add "D:/Downloads/dsh-whale-widget-0.4.2-pixel.3.tgz"
+dsh plugin --profile web add "D:/Downloads/dsh-whale-widget-0.4.2-pixel.4.tgz"
 dsh web
 ```
 
