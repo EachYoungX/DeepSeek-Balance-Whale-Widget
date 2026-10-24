@@ -4,6 +4,31 @@
   var NS = 'http://www.w3.org/2000/svg'
   var MODES = ['pixel', 'raster', 'classic']
   var fontPromise = null
+  var frameTemplate = null
+
+  function setFrameSvg(source) {
+    try {
+      var doc = new DOMParser().parseFromString(source, 'image/svg+xml')
+      if (doc.querySelector('parsererror') || doc.documentElement.getAttribute('viewBox') !== '0 0 128 87') throw new Error('Invalid frame SVG')
+      var parts = ['bubble-main', 'bubble-small-1', 'bubble-small-2'].map(function (id) {
+        var original = doc.getElementById(id), group = document.createElementNS(NS, 'g')
+        if (!original) throw new Error('Missing frame part: ' + id)
+        original.querySelectorAll('path').forEach(function (node) {
+          var path = document.createElementNS(NS, 'path'), fill = node.getAttribute('fill'), d = node.getAttribute('d')
+          if (!/^#[\da-f]{6}$/i.test(fill) || !d || !/^(?:[MHVZ\s]|\d)+$/.test(d)) throw new Error('Invalid frame path')
+          path.setAttribute('fill', fill); path.setAttribute('fill-rule', 'evenodd'); path.setAttribute('d', d)
+          group.appendChild(path)
+        })
+        if (!group.childNodes.length) throw new Error('Empty frame part: ' + id)
+        return group
+      })
+      frameTemplate = parts
+      return true
+    } catch (err) {
+      console.warn('[dsh-whale-pixel] Frame SVG unavailable:', err.message)
+      return false
+    }
+  }
 
   function fontReady() {
     if (!scope.document || !document.fonts || !scope.FontFace) return Promise.resolve(null)
@@ -166,7 +191,7 @@
 
   function mount(options) {
     var root = options.root, shape = options.shape, bubble = options.bubble, text = options.text
-    var mode = 'pixel', source = null, builtin = true, disposed = false, revision = 0, pending = null
+    var mode = 'pixel', source = null, builtin = true, useTemplate = true, disposed = false, revision = 0, pending = null
     var raf = null, svgUrl = null
     try { var saved = localStorage.getItem('dshw-pixel-dialogue'); if (MODES.indexOf(saved) >= 0) mode = saved } catch (err) {}
     var vector = document.createElementNS(NS, 'svg')
@@ -181,7 +206,7 @@
     var select = document.createElement('select')
     select.className = 'dshwv-dialogue-style'
     select.setAttribute('aria-label', '对话框风格')
-    ;[['pixel', '像素边框'], ['raster', '原框像素化'], ['classic', '经典样式']].forEach(function (item) {
+    ;[['pixel', '像素倒角方形'], ['raster', '像素椭圆'], ['classic', '经典样式']].forEach(function (item) {
       var option = document.createElement('option'); option.value = item[0]; option.textContent = item[1]; select.appendChild(option)
     })
     select.value = mode; row.appendChild(select); options.menu.appendChild(row)
@@ -207,6 +232,18 @@
     function pixelShape(svg) {
       svg.setAttribute('data-pixel-frame', '')
       svg.querySelectorAll('.dshwv-bshape,.dshwv-b1,.dshwv-b2').forEach(function (node) {
+        if (frameTemplate && useTemplate && !node.classList.contains('dshwv-bshape')) {
+          var group = document.createElementNS(NS, 'g')
+          group.setAttribute('class', node.getAttribute('class'))
+          group.setAttribute('data-pixel-small', node.classList.contains('dshwv-b1') ? '1' : '2')
+          var part = frameTemplate[node.classList.contains('dshwv-b1') ? 1 : 2].cloneNode(true)
+          // Keep geometry transforms inside the animated group; its CSS transform
+          // controls the existing bubble opening/closing animation.
+          part.setAttribute('transform', 'scale(' + (1026 / 128) + ' ' + (700 / 87) + ')')
+          part.setAttribute('shape-rendering', 'crispEdges')
+          group.appendChild(part); node.replaceWith(group)
+          return
+        }
         if (node.tagName.toLowerCase() !== 'path' && node.tagName.toLowerCase() !== 'ellipse') return
         var box = node.getBBox()
         if (!(box.width > 0 && box.height > 0)) return
@@ -218,6 +255,18 @@
         path.setAttribute('stroke-linecap', 'butt')
         node.replaceWith(path)
       })
+    }
+    function paintTemplate() {
+      vector.replaceChildren()
+      frameTemplate.forEach(function (part, index) {
+        var group = part.cloneNode(true)
+        group.setAttribute('data-pixel-part', String(index))
+        if (index) group.setAttribute('data-pixel-small', String(index))
+        vector.appendChild(group)
+      })
+      vector.dataset.sourceWidth = '128'; vector.dataset.sourceHeight = '87'
+      shape.appendChild(vector)
+      bubble.classList.add('dshwv-raster-ready')
     }
     function paintVector(data, width, height, palette) {
       vector.replaceChildren()
@@ -287,17 +336,21 @@
         if (current) current.replaceWith(svg); else shape.prepend(svg)
         if (mode === 'pixel' && builtin) pixelShape(svg)
         if (mode === 'raster') {
-          pending = new AbortController()
-          rasterize(source.cloneNode(true), revision, pending.signal)
+          if (useTemplate && frameTemplate) paintTemplate()
+          else {
+            pending = new AbortController()
+            rasterize(source.cloneNode(true), revision, pending.signal)
+          }
         }
       }
       scheduleFonts()
     }
-    function frameChanged(frame) {
+    function frameChanged(frame, override) {
       if (disposed) return
       var svg = shape.querySelector('svg')
       source = svg ? svg.cloneNode(true) : null
       builtin = !frame || frame.builtin === true || frame.id === 'frame_classic'
+      useTemplate = builtin && !(override && Object.keys(override).length)
       render()
     }
     function change() {
@@ -324,6 +377,6 @@
     fontReady().then(scheduleFonts).catch(function (err) { console.warn('[dsh-whale-pixel] Pixel font unavailable:', err.message) })
     return { frameChanged: frameChanged, dispose: dispose }
   }
-  scope.DshWhalePixelTheme = Object.freeze({ mount: mount, fontSize: fontSize, stepRect: stepRect, fontReady: fontReady, quantizePixels: quantizePixels, pixelPaths: pixelPaths })
+  scope.DshWhalePixelTheme = Object.freeze({ mount: mount, fontSize: fontSize, stepRect: stepRect, fontReady: fontReady, quantizePixels: quantizePixels, pixelPaths: pixelPaths, setFrameSvg: setFrameSvg })
   styles()
 })(typeof globalThis === 'object' ? globalThis : window)

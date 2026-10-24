@@ -14805,7 +14805,7 @@ function applyBubbleFrame(frame, override) {
       if (textBox) textBox.style.color = (frame && frame.textColor) ? String(frame.textColor) : ''
     } catch (err) {}
     applyBubbleTextFrame(frame)
-    if (pixelDialogue) pixelDialogue.frameChanged(frame)
+    if (pixelDialogue) pixelDialogue.frameChanged(frame, override)
     return true
   } catch (err) { return false }
 }

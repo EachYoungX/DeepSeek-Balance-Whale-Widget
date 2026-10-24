@@ -36,6 +36,8 @@
 
 像素对话框、原框颜色归一、SVG 轮廓提取与字体加载位于 `assets/pixel-theme.js`。`test/pixel-theme.test.mjs` 校验颜色与透明边缘归一、SVG 孔洞及对角接触轮廓，并核对 `assets/fonts/fusion-pixel/` 中字体与原始许可的文件完整性。主题切换仅影响真实挂件的呈现，原框配置保持可编辑。
 
+内置椭圆与共用小气泡的源文件为 `assets/previews/dialogue-frame-pixel.svg`，分别按三个 `bubble-*` 分组编辑。`loadPixelScripts()` 将它编码到客户端脚本中，两个样式均使用源文件的小气泡路径。浏览器检查覆盖切换前后路径一致与 7 个修整像素格；打包检查确保该 SVG 随安装包提供。
+
 下面是你打开仓库第一时间看到的东西。行数按仓库内 LF 内容统计（git 里的真实内容，不是 Windows 工作区的 CRLF），口径与维护者的自检脚本一致。
 
 ```

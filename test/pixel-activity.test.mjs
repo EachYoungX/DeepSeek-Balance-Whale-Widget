@@ -75,4 +75,8 @@ test('event subscriptions are disposed with the plugin and scripts precede widge
   disposers.forEach(dispose => dispose()); assert.equal(listeners.size, 0)
   const scripts = loadPixelScripts(fileURLToPath(new URL('../', import.meta.url)))
   assert.ok(scripts.indexOf('DshWhalePixelCore =') < scripts.indexOf('DshWhalePixel ='))
+  assert.ok(scripts.includes('DshWhalePixelTheme.setFrameSvg('))
+  assert.ok(scripts.includes('bubble-small-1'))
+  assert.ok(scripts.includes('bubble-small-2'))
+  assert.ok(!scripts.includes('<svg'), 'Frame markup must be escaped for Desktop inline injection')
 })

@@ -37,6 +37,12 @@ async function point(side = 'left') {
   }, side)
 }
 async function click(side = 'left') { const p = await point(side); await page.mouse.click(p.x, p.y) }
+async function smallContours() {
+  return page.locator('.dshwv-shapewrap [data-pixel-small]').evaluateAll(groups => groups.map(group => ({
+    slot: group.dataset.pixelSmall,
+    paths: [...group.querySelectorAll('path')].map(path => [path.getAttribute('fill'), path.getAttribute('d')]),
+  })))
+}
 async function openMenu() {
   if (await page.locator('.dshwv-menu').evaluate(el => el.classList.contains('dshwv-menu-open'))) return
   if (await page.locator('.dshwv-menu-btn').isVisible()) await page.locator('.dshwv-menu-btn').click()
@@ -145,6 +151,12 @@ try {
     assert.match(face.text, /100\.00/)
     assert.equal(await page.locator('.dshwv-shapewrap svg[data-pixel-frame]').count(), 1)
     assert.equal(await page.locator('.dshwv-shapewrap ellipse').count(), 0)
+    assert.equal(await page.locator('.dshwv-shapewrap [data-pixel-small]').count(), 2)
+    const small = await smallContours()
+    assert.equal(small[0].paths.length, 2)
+    assert.equal(small[1].paths.length, 2)
+    assert.match(small[0].paths[0][1], /H 42 V 67 H 46 V 68/)
+    assert.match(small[1].paths[0][1], /H 57 V 81 H 56 V 82 H 54/)
     const before = await page.locator('.dshwv-text').textContent()
     await page.locator('.dshwv-shapewrap .dshwv-bshape').click()
     await page.waitForFunction(before => !document.querySelector('.dshwv-pop').classList.contains('dshwv-pop-open') || document.querySelector('.dshwv-text').textContent !== before, before)
@@ -152,8 +164,10 @@ try {
   })
   await action('pixelated frames contain only original-color SVG contours; classic and pixel choices persist', async () => {
     await openMenu()
+    const squareSmalls = await smallContours()
     await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
     await page.waitForSelector('.dshwv-raster-ready')
+    assert.deepEqual(await smallContours(), squareSmalls, 'Both main-frame styles must use the same edited small bubbles')
     const raster = await page.locator('.dshwv-bubble-raster').evaluate(async el => {
       const paths = [...el.querySelectorAll('path')]
       const svg = el.cloneNode(true)
@@ -172,7 +186,7 @@ try {
         }
       } finally { URL.revokeObjectURL(url) }
       return { source: [el.dataset.sourceWidth, el.dataset.sourceHeight], tag: el.tagName,
-        fills: paths.map(p => p.getAttribute('fill')).sort(), colors: [...colors].sort(), alpha: [...alpha].sort((a, b) => a - b),
+        fills: [...new Set(paths.map(p => p.getAttribute('fill')))].sort(), colors: [...colors].sort(), alpha: [...alpha].sort((a, b) => a - b),
         orthogonal: paths.every(p => /^(?:[MHVZ\s]|\d)+$/.test(p.getAttribute('d'))),
         pointer: paths.every(p => getComputedStyle(p).pointerEvents === 'none'),
         sourceOpacity: getComputedStyle(el.parentNode.querySelector('[data-pixel-source]')).opacity,
@@ -189,6 +203,11 @@ try {
     assert.equal(raster.sourceOpacity, '0')
     assert.equal(raster.embedded, 0)
     assert.deepEqual(await displayedFrameColors(page), ['251,0,249,255', '255,255,255,255', '32,49,112,255'])
+    await page.getByLabel('对话框风格', { exact: true }).selectOption('pixel')
+    assert.deepEqual(await smallContours(), squareSmalls)
+    const squareMain = await page.locator('.dshwv-shapewrap [data-pixel-frame] .dshwv-bshape').getAttribute('d')
+    assert.match(squareMain, /^M .* H .* V /)
+    assert.doesNotMatch(squareMain, /[ACQ]/)
     await page.getByLabel('对话框风格', { exact: true }).selectOption('classic')
     assert.equal(await page.locator('.dshwv-shapewrap ellipse').count(), 2)
     await page.reload()
@@ -199,6 +218,28 @@ try {
     await page.reload()
     await page.waitForFunction(() => document.querySelector('.dshwv-root')?.dataset.pixelDialogue === 'pixel')
     await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+  })
+  await action('saved per-step paint overrides remain visible when switching pixel styles', async () => {
+    const original = (await (await page.request.get(app.url + '/dsh-whale/bubble.json')).json()).config || { v: 1, items: [{ kind: 'normal' }], lib: [] }
+    const paint = { line: '#bd2848', bg: '#f5e4e6' }
+    const config = { ...original, items: original.items.map(item => ({ ...item, frameId: 'frame_classic', frameOverride: { big: paint, small1: paint, small2: paint } })) }
+    try {
+      await page.request.put(app.url + '/dsh-whale/bubble.json', { data: config })
+      await page.reload()
+      await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+      await click()
+      await page.waitForSelector('.dshwv-pop-open')
+      assert.equal(await page.locator('.dshwv-shapewrap .dshwv-b1').getAttribute('stroke'), '#bd2848')
+      await openMenu()
+      await page.getByLabel('对话框风格', { exact: true }).selectOption('raster')
+      await page.waitForSelector('.dshwv-raster-ready')
+      assert.deepEqual(await page.locator('.dshwv-bubble-raster path').evaluateAll(paths => [...new Set(paths.map(p => p.getAttribute('fill')))].sort()), ['#bd2848', '#f5e4e6'])
+      await page.getByLabel('对话框风格', { exact: true }).selectOption('pixel')
+    } finally {
+      await page.request.put(app.url + '/dsh-whale/bubble.json', { data: original })
+      await page.reload()
+      await page.waitForFunction(() => document.querySelector('.dshwv-pixel')?.dataset.renderer === 'png')
+    }
   })
   await action('custom frame geometry stays intact and frame-library images can be pixelated', async () => {
     const original = (await (await page.request.get(app.url + '/dsh-whale/bubble.json')).json()).config || { v: 1, items: [{ kind: 'normal' }], lib: [] }
